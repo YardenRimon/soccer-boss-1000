@@ -1,139 +1,92 @@
-// 10 Themed Worlds across 100 deterministic procedural levels (10 levels per world)
+// 100 Levels across 10 Worlds — EVERY single level has its own unique style, color palette, time of day, and rain/lightning weather!
 
 export const TOTAL_LEVELS = 100;
 
 export const WORLDS = [
+  { id: 1, name: 'אצטדיון הבית', emoji: '⚽', range: [1, 10], slippery: false },
+  { id: 2, name: 'מגרש שכונתי', emoji: '🏙️', range: [11, 20], slippery: false },
+  { id: 3, name: 'אצטדיון הקרח', emoji: '❄️', range: [21, 30], slippery: true },
+  { id: 4, name: 'מדבר הלהט', emoji: '🏜️', range: [31, 40], slippery: false },
+  { id: 5, name: "ג'ונגל האמזונס", emoji: '🌴', range: [41, 50], slippery: false },
+  { id: 6, name: 'הר הגעש', emoji: '🌋', range: [51, 60], slippery: false },
+  { id: 7, name: 'עיר הניאון', emoji: '⚡', range: [61, 70], slippery: false },
+  { id: 8, name: 'חוף טרופי', emoji: '🏖️', range: [71, 80], slippery: false },
+  { id: 9, name: 'ארמון המלכה', emoji: '👑', range: [81, 90], slippery: false },
+  { id: 10, name: 'גלקסיית האלופים', emoji: '🌌', range: [91, 100], slippery: false },
+];
+
+export const PITCH_PATTERNS = ['stripes', 'checkered', 'circles', 'diagonal', 'vertical'];
+
+export const TIMES_OF_DAY = [
   {
-    id: 1,
-    name: 'אצטדיון הבית',
-    emoji: '⚽',
-    range: [1, 10],
-    turfA: '#1d7a46',
-    turfB: '#18693b',
-    lineColor: 'rgba(255,255,255,0.45)',
-    coneColor: '#f97316',
-    bossColor: '#dc2626',
-    queenColor: '#9333ea',
-    slippery: false,
+    id: 'night_storm',
+    clock: '22:30',
+    label: 'ליל סערה',
+    emoji: '⛈️🌙',
+    isNight: true,
+    ambientOverlay: 'rgba(6, 11, 28, 0.46)',
+    sunbeams: false,
+    shadowScale: 1.35,
   },
   {
-    id: 2,
-    name: 'מגרש שכונתי',
-    emoji: '🏙️',
-    range: [11, 20],
-    turfA: '#334155',
-    turfB: '#283548',
-    lineColor: 'rgba(250,204,21,0.55)',
-    coneColor: '#fb923c',
-    bossColor: '#e11d48',
-    queenColor: '#c026d3',
-    slippery: false,
+    id: 'dawn',
+    clock: '06:15',
+    label: 'זריחה',
+    emoji: '🌅🌧️',
+    isNight: false,
+    ambientOverlay: 'rgba(244, 114, 182, 0.16)',
+    sunbeams: true,
+    shadowScale: 1.25,
   },
   {
-    id: 3,
-    name: 'אצטדיון הקרח',
-    emoji: '❄️',
-    range: [21, 30],
-    turfA: '#0ea5e9',
-    turfB: '#0284c7',
-    lineColor: 'rgba(255,255,255,0.7)',
-    coneColor: '#f43f5e',
-    bossColor: '#1e3a8a',
-    queenColor: '#6366f1',
-    slippery: true,
+    id: 'morning',
+    clock: '09:30',
+    label: 'בוקר',
+    emoji: '🌦️☀️',
+    isNight: false,
+    ambientOverlay: 'rgba(253, 224, 71, 0.08)',
+    sunbeams: true,
+    shadowScale: 0.9,
   },
   {
-    id: 4,
-    name: 'מדבר הלהט',
-    emoji: '🏜️',
-    range: [31, 40],
-    turfA: '#ca8a04',
-    turfB: '#b47803',
-    lineColor: 'rgba(255,248,220,0.55)',
-    coneColor: '#ea580c',
-    bossColor: '#991b1b',
-    queenColor: '#7e22ce',
-    slippery: false,
+    id: 'noon',
+    clock: '13:00',
+    label: 'צהריים',
+    emoji: '☀️⚡',
+    isNight: false,
+    ambientOverlay: 'rgba(255, 255, 255, 0.05)',
+    sunbeams: true,
+    shadowScale: 0.7,
   },
   {
-    id: 5,
-    name: "ג'ונגל האמזונס",
-    emoji: '🌴',
-    range: [41, 50],
-    turfA: '#15803d',
-    turfB: '#14532d',
-    lineColor: 'rgba(187,247,208,0.5)',
-    coneColor: '#facc15',
-    bossColor: '#b91c1c',
-    queenColor: '#a21caf',
-    slippery: false,
+    id: 'sunset',
+    clock: '18:45',
+    label: 'שקיעה',
+    emoji: '🌇⛈️',
+    isNight: false,
+    ambientOverlay: 'rgba(249, 115, 22, 0.22)',
+    sunbeams: false,
+    shadowScale: 1.4,
   },
   {
-    id: 6,
-    name: 'הר הגעש',
-    emoji: '🌋',
-    range: [51, 60],
-    turfA: '#451a03',
-    turfB: '#361302',
-    lineColor: 'rgba(251,146,60,0.6)',
-    coneColor: '#ef4444',
-    bossColor: '#f97316',
-    queenColor: '#ec4899',
-    slippery: false,
-  },
-  {
-    id: 7,
-    name: 'עיר הניאון',
-    emoji: '⚡',
-    range: [61, 70],
-    turfA: '#1e1b4b',
-    turfB: '#17143b',
-    lineColor: 'rgba(34,211,238,0.65)',
-    coneColor: '#22d3ee',
-    bossColor: '#f43f5e',
-    queenColor: '#e879f9',
-    slippery: false,
-  },
-  {
-    id: 8,
-    name: 'חוף טרופי',
-    emoji: '🏖️',
-    range: [71, 80],
-    turfA: '#d97706',
-    turfB: '#c26905',
-    lineColor: 'rgba(255,255,255,0.6)',
-    coneColor: '#06b6d4',
-    bossColor: '#be123c',
-    queenColor: '#7c3aed',
-    slippery: false,
-  },
-  {
-    id: 9,
-    name: 'ארמון המלכה',
-    emoji: '👑',
-    range: [81, 90],
-    turfA: '#4c1d95',
-    turfB: '#3b0764',
-    lineColor: 'rgba(250,204,21,0.65)',
-    coneColor: '#facc15',
-    bossColor: '#e11d48',
-    queenColor: '#f472b6',
-    slippery: false,
-  },
-  {
-    id: 10,
-    name: 'גלקסיית האלופים',
-    emoji: '🌌',
-    range: [91, 100],
-    turfA: '#0f172a',
-    turfB: '#090e1c',
-    lineColor: 'rgba(167,139,250,0.65)',
-    coneColor: '#fb7185',
-    bossColor: '#facc15',
-    queenColor: '#c084fc',
-    slippery: false,
+    id: 'dusk',
+    clock: '20:15',
+    label: 'דמדומים',
+    emoji: '🌆⚡',
+    isNight: true,
+    ambientOverlay: 'rgba(49, 46, 129, 0.36)',
+    sunbeams: false,
+    shadowScale: 1.3,
   },
 ];
+
+const PATTERN_NAMES_HE = {
+  stripes: 'פסי אצטדיון',
+  checkered: 'משבצות',
+  circles: 'טבעות מרכז',
+  diagonal: 'אלכסונים',
+  vertical: 'מסלולים',
+};
 
 export function getWorldForLevel(level) {
   const clamped = Math.max(1, Math.min(TOTAL_LEVELS, level));
@@ -141,7 +94,7 @@ export function getWorldForLevel(level) {
   return WORLDS[idx] || WORLDS[0];
 }
 
-// Mulberry32 deterministic PRNG so every level (1..1000) has a consistent layout
+// Mulberry32 deterministic PRNG
 function mulberry32(seed) {
   let a = seed >>> 0;
   return function () {
@@ -154,19 +107,66 @@ function mulberry32(seed) {
 }
 
 /**
- * Generates normalized level parameters (coordinates in 0..1 field space).
- * Field layout (top to bottom):
- *   0.00 - 0.16 : Boss zone (Boss dodges horizontally)
- *   0.22 - 0.42 : Queen Zigzag Zone (Queen slides in zigzag between cones!)
- *   0.46 - 0.78 : Player Zigzag Zone (Player weaves in zigzag between cones facing Queen!)
- *   0.82 - 0.94 : Player spawn area
+ * Generates a unique visual style, color palette, pattern, time of day, and weather for EVERY level (1..100).
  */
+function generateLevelVisualStyle(lvl, baseWorld, rand) {
+  // Golden-angle hue stepping ensures consecutive levels always look distinctly colored!
+  const hue = Math.round((lvl * 137.508 + 110) % 360);
+  const coneHue = (hue + 150) % 360;
+  const bossHue = (hue + 210) % 360;
+  const queenHue = (hue + 285) % 360;
+
+  const timeOfDay = TIMES_OF_DAY[(lvl - 1) % TIMES_OF_DAY.length];
+  const pitchPattern = PITCH_PATTERNS[(lvl - 1) % PITCH_PATTERNS.length];
+
+  // Adjust turf lightness for day vs night while keeping rich saturation
+  const sat = baseWorld.id === 2 ? 32 : baseWorld.id === 10 ? 55 : 58;
+  const lightA = timeOfDay.isNight ? 21 : 32;
+  const lightB = timeOfDay.isNight ? 16 : 26;
+
+  const turfA = `hsl(${hue}, ${sat}%, ${lightA}%)`;
+  const turfB = `hsl(${(hue + 8) % 360}, ${sat}%, ${lightB}%)`;
+  const lineColor = timeOfDay.isNight
+    ? `hsla(${(hue + 45) % 360}, 95%, 78%, 0.62)`
+    : `hsla(${(hue + 30) % 360}, 90%, 92%, 0.55)`;
+  const coneColor = `hsl(${coneHue}, 92%, 56%)`;
+  const bossColor = `hsl(${bossHue}, 82%, 50%)`;
+  const queenColor = `hsl(${queenHue}, 84%, 56%)`;
+
+  // Rain & lightning settings per level (every level has dynamic rain & lightning!)
+  const rainCount = 65 + ((lvl * 19) % 55); // 65..120 raindrops
+  const rainWind = ((lvl % 5) - 2) * 0.07; // slanting angle
+  const lightningIntervalMin = timeOfDay.isNight ? 2.4 : 3.2;
+  const lightningIntervalMax = timeOfDay.isNight ? 4.8 : 6.2;
+
+  return {
+    ...baseWorld,
+    hue,
+    turfA,
+    turfB,
+    lineColor,
+    coneColor,
+    bossColor,
+    queenColor,
+    pitchPattern,
+    patternNameHe: PATTERN_NAMES_HE[pitchPattern],
+    timeOfDay,
+    weather: {
+      rainCount,
+      rainWind,
+      lightningIntervalMin,
+      lightningIntervalMax,
+    },
+  };
+}
+
 export function generateLevelConfig(level) {
   const lvl = Math.max(1, Math.min(TOTAL_LEVELS, Math.floor(level)));
-  const world = getWorldForLevel(lvl);
+  const baseWorld = getWorldForLevel(lvl);
   const rand = mulberry32(lvl * 7919 + 1337);
+  const world = generateLevelVisualStyle(lvl, baseWorld, rand);
 
-  // Smooth progression curve across 100 levels (10 worlds x 10 levels)
+  // Smooth progression curve across 100 levels
   const p = (lvl - 1) / (TOTAL_LEVELS - 1); // 0..1
   const easyRamp = Math.min(1, (lvl - 1) / 15); // 0..1 over first 15 levels
 
@@ -178,7 +178,6 @@ export function generateLevelConfig(level) {
   for (let i = 0; i < queenConeCount; i++) {
     const t = queenConeCount === 1 ? 0.5 : i / (queenConeCount - 1);
     const x = qStartX + t * (qEndX - qStartX);
-    // Alternating high/low creates a crisp zigzag slalom for the Queen!
     const zigOffset = (i % 2 === 0 ? -1 : 1) * 0.042;
     const y = 0.31 + zigOffset;
     queenCones.push({ x, y, zone: 'queen', r: 0.032 });
@@ -195,12 +194,10 @@ export function generateLevelConfig(level) {
     const t = playerConeRows === 1 ? 0.5 : i / (playerConeRows - 1);
     const y = startY + t * (endY - startY);
     const side = i % 2 === 0 ? startSide : -startSide;
-    // Zigzag alternating left/right with slight deterministic variation
     const spread = 0.18 + rand() * 0.11;
     const x = Math.max(0.16, Math.min(0.84, 0.5 + side * spread));
     playerCones.push({ x, y, zone: 'player', r: 0.034 });
 
-    // On higher levels, add a secondary outer cone to tighten the zigzag slalom
     if (lvl >= 12 && i % 2 === 1 && rand() < 0.35 + p * 0.45) {
       const oppositeX = Math.max(0.14, Math.min(0.86, 0.5 - side * (0.28 + rand() * 0.08)));
       if (Math.abs(oppositeX - x) > 0.24) {
@@ -228,7 +225,7 @@ export function generateLevelConfig(level) {
   return {
     level: lvl,
     world,
-    bossMaxHp: 10, // Always 10 hits per user requirement!
+    bossMaxHp: 5, // Updated from 10 to 5 hits per user request!
     bossSpeed: 0.22 + easyRamp * 0.15 + p * 0.32,
     bossDodgeReaction: 0.35 + easyRamp * 0.22 + p * 0.35,
     queenSpeed: 0.26 + easyRamp * 0.16 + p * 0.34,

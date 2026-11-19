@@ -74,6 +74,13 @@ class SoundEngine {
     this._tone(587, 880, 0.14, 'sine', 0.14, 0.08);
   }
 
+  thunder() {
+    if (this.muted || !this.ctx || this.ctx.state !== 'running') return;
+    // Low rumbling thunder crack + roll
+    this._tone(135, 38, 0.45, 'sawtooth', 0.11, 0);
+    this._tone(90, 28, 0.65, 'triangle', 0.14, 0.06);
+  }
+
   win() {
     const notes = [523.25, 659.25, 783.99, 1046.5];
     notes.forEach((n, i) => {

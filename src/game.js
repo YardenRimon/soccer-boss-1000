@@ -2,7 +2,7 @@ import { sound } from './audio.js';
 import { generateLevelConfig } from './worlds.js';
 
 const POWERUP_TYPES = [
-  { id: 'fire', emoji: '🔥', label: 'כדור אש (3x נזק)', color: '#f97316' },
+  { id: 'fire', emoji: '🔥', label: 'כדור אש (2x נזק)', color: '#f97316' },
   { id: 'freeze', emoji: '❄️', label: 'מלכה קפואה', color: '#38bdf8' },
   { id: 'turbo', emoji: '⚡', label: 'טורבו + ירי מהיר', color: '#facc15' },
 ];
@@ -47,6 +47,13 @@ export class SoccerBossGame {
     this.particles = [];
     this.floatingTexts = [];
     this.confetti = [];
+
+    // Weather (Rain & Lightning)
+    this.rainDrops = [];
+    this.rainSplashes = [];
+    this.lightningTimer = 2.0;
+    this.lightningFlash = 0;
+    this.lightningBolts = [];
 
     this.queenShotTimer = 1.6;
     this.powerupTimer = 4.0;
@@ -132,6 +139,8 @@ export class SoccerBossGame {
     this.floatingTexts = [];
     this.confetti = [];
 
+    this._initWeather();
+
     this.queenShotTimer = this.config.queenShotInterval > 0 ? Math.min(1.6, this.config.queenShotInterval) : 999;
     this.powerupTimer = 3.5;
     this.ballCooldown = 0;
@@ -141,6 +150,63 @@ export class SoccerBossGame {
 
     this.state = startPlaying ? 'playing' : 'paused';
     this._syncHud();
+  }
+
+  _initWeather() {
+    const count = this.config.world.weather.rainCount;
+    this.rainDrops = [];
+    for (let i = 0; i < count; i++) {
+      this.rainDrops.push({
+        x: Math.random(),
+        y: Math.random(),
+        len: 0.025 + Math.random() * 0.03,
+        speed: 0.85 + Math.random() * 0.65,
+        alpha: 0.25 + Math.random() * 0.4,
+      });
+    }
+    this.rainSplashes = [];
+    this.lightningFlash = 0;
+    this.lightningBolts = [];
+    this.lightningTimer = 1.4 + Math.random() * 1.8;
+  }
+
+  triggerLightning() {
+    this.lightningFlash = 0.34;
+    this.shakeTime = Math.max(this.shakeTime, 0.14);
+    this.shakeMag = Math.max(this.shakeMag, 4);
+    sound.thunder();
+
+    // Generate main jagged lightning bolt + optional branch
+    const startX = 0.15 + Math.random() * 0.7;
+    const segments = [];
+    const branches = [];
+    let cx = startX;
+    let cy = 0.0;
+    const steps = 9;
+    const endY = 0.45 + Math.random() * 0.35;
+    const stepY = endY / steps;
+
+    for (let i = 0; i < steps; i++) {
+      const nx = Math.max(0.05, Math.min(0.95, cx + (Math.random() - 0.5) * 0.14));
+      const ny = cy + stepY;
+      segments.push({ x1: cx, y1: cy, x2: nx, y2: ny });
+
+      if (i > 1 && i < steps - 1 && Math.random() < 0.45) {
+        let bx = nx;
+        let by = ny;
+        for (let b = 0; b < 3; b++) {
+          const bnx = bx + (Math.random() - 0.5) * 0.12;
+          const bny = by + stepY * 0.85;
+          branches.push({ x1: bx, y1: by, x2: bnx, y2: bny });
+          bx = bnx;
+          by = bny;
+        }
+      }
+      cx = nx;
+      cy = ny;
+    }
+
+    this.lightningBolts = [{ segments, branches, life: 0.26, maxLife: 0.26, hitX: cx, hitY: cy }];
   }
 
   setPlaying(active) {
@@ -168,7 +234,7 @@ export class SoccerBossGame {
       vy: -speed,
       r: isFire ? 0.028 : 0.023,
       fire: isFire,
-      damage: isFire ? 3 : 1,
+      damage: isFire ? 2 : 1,
       spin: 0,
     });
 
@@ -204,9 +270,13 @@ export class SoccerBossGame {
   }
 
   _syncHud() {
+    const w = this.config.world;
+    const tod = w.timeOfDay;
     this.callbacks.onHudUpdate?.({
       level: this.config.level,
-      worldName: `${this.config.world.emoji} ${this.config.world.name}`,
+      worldName: `${w.emoji} ${w.name} • ${w.patternNameHe}`,
+      timeLabel: `${tod.emoji} ${tod.clock} ${tod.label}`,
+      hue: w.hue,
       bossHp: this.boss.hp,
       bossMaxHp: this.boss.maxHp,
       fireShots: this.fireShotsLeft,
@@ -216,6 +286,9 @@ export class SoccerBossGame {
   }
 
   update(dt) {
+    // Always animate rain and lightning even while modal/win is open for atmospheric immersion
+    this._updateWeather(dt);
+
     // Update confetti even on win screen
     if (this.confetti.length > 0) {
       for (const c of this.confetti) {
@@ -227,7 +300,6 @@ export class SoccerBossGame {
       this.confetti = this.confetti.filter((c) => c.y < 1.2);
     }
 
-    // Update particles & floating texts
     this._updateEffects(dt);
 
     if (this.shakeTime > 0) {
@@ -276,6 +348,58 @@ export class SoccerBossGame {
     if (hudDirty) this._syncHud();
   }
 
+  _updateWeather(dt) {
+    const weather = this.config.world.weather;
+    const wind = weather.rainWind;
+
+    for (const drop of this.rainDrops) {
+      drop.x += wind * dt * 2.2;
+      drop.y += drop.speed * dt;
+      if (drop.y > 1.02) {
+        if (Math.random() < 0.35 && this.rainSplashes.length < 30) {
+          this.rainSplashes.push({
+            x: drop.x,
+            y: 0.1 + Math.random() * 0.85,
+            r: 1.5,
+            maxR: 5 + Math.random() * 4,
+            life: 0.22,
+            maxLife: 0.22,
+          });
+        }
+        drop.y = -0.05;
+        drop.x = Math.random();
+      }
+      if (drop.x < -0.05) drop.x = 1.05;
+      if (drop.x > 1.05) drop.x = -0.05;
+    }
+
+    for (let i = this.rainSplashes.length - 1; i >= 0; i--) {
+      const s = this.rainSplashes[i];
+      s.life -= dt;
+      s.r += 16 * dt;
+      if (s.life <= 0) this.rainSplashes.splice(i, 1);
+    }
+
+    if (this.lightningFlash > 0) {
+      this.lightningFlash = Math.max(0, this.lightningFlash - dt);
+    }
+
+    for (let i = this.lightningBolts.length - 1; i >= 0; i--) {
+      this.lightningBolts[i].life -= dt;
+      if (this.lightningBolts[i].life <= 0) {
+        this.lightningBolts.splice(i, 1);
+      }
+    }
+
+    this.lightningTimer -= dt;
+    if (this.lightningTimer <= 0) {
+      const minT = weather.lightningIntervalMin;
+      const maxT = weather.lightningIntervalMax;
+      this.lightningTimer = minT + Math.random() * (maxT - minT);
+      this.triggerLightning();
+    }
+  }
+
   _updatePlayer(dt) {
     const baseSpeed = this.turboTimer > 0 ? 0.66 : 0.46;
     let ix = 0;
@@ -302,7 +426,6 @@ export class SoccerBossGame {
     this.player.x += this.player.vx * dt;
     this.player.y += this.player.vy * dt;
 
-    // Clamp player to lower & mid playfield (cannot walk past the Queen line)
     const minX = 0.06;
     const maxX = 0.94;
     const minY = 0.41;
@@ -337,18 +460,16 @@ export class SoccerBossGame {
     }
 
     if (this.queenFreezeTimer > 0) {
-      return; // Frozen solid!
+      return;
     }
 
-    // Queen tracks incoming ball first, otherwise shadows the player
     let targetX = this.player.x;
     const incoming = this.balls.find((b) => b.vy < 0 && b.y > this.queen.y - 0.03);
     if (incoming) {
       targetX = incoming.x;
     }
 
-    // Speed increases slightly as Boss loses HP
-    const rageMult = 1 + (this.boss.maxHp - this.boss.hp) * 0.035;
+    const rageMult = 1 + (this.boss.maxHp - this.boss.hp) * 0.07;
     const maxSpd = this.config.queenSpeed * rageMult;
 
     const dx = targetX - this.queen.x;
@@ -370,7 +491,6 @@ export class SoccerBossGame {
     }
     if (nearestCone && nearestDistX < 0.16) {
       const influence = 1 - nearestDistX / 0.16;
-      // If cone is above 0.31, Queen slides below it; if cone is below 0.31, Queen slides above it!
       const weaveDir = nearestCone.y < 0.31 ? 1 : -1;
       targetY = 0.31 + weaveDir * 0.058 * influence;
     }
@@ -378,7 +498,6 @@ export class SoccerBossGame {
     this.queen.y += (targetY - this.queen.y) * Math.min(1, 10 * dt);
     this.queen.slidePhase += Math.abs(this.queen.vx) * dt * 12;
 
-    // Queen throws dodgeable obstacle on level 3+
     if (this.config.queenShotInterval > 0) {
       this.queenShotTimer -= dt;
       if (this.queenShotTimer <= 0) {
@@ -400,12 +519,11 @@ export class SoccerBossGame {
     if (this.boss.hitFlash > 0) {
       this.boss.hitFlash = Math.max(0, this.boss.hitFlash - dt);
     }
-    this.boss.angryPhase += dt * (4 + (this.boss.maxHp - this.boss.hp) * 0.6);
+    this.boss.angryPhase += dt * (4 + (this.boss.maxHp - this.boss.hp) * 1.1);
 
-    const rageMult = 1 + (this.boss.maxHp - this.boss.hp) * 0.045;
+    const rageMult = 1 + (this.boss.maxHp - this.boss.hp) * 0.09;
     const speed = this.config.bossSpeed * rageMult;
 
-    // Check if a ball is approaching the Boss -> Boss actively tries to dodge!
     let threat = null;
     for (const b of this.balls) {
       if (b.vy < 0 && b.y < 0.52 && b.y > this.boss.y) {
@@ -415,14 +533,12 @@ export class SoccerBossGame {
     }
 
     if (threat && Math.abs(threat.x - this.boss.x) < 0.18) {
-      // Dodge away from the ball (unless pinned near edge, then dodge inward)
       let dodgeDir = this.boss.x >= threat.x ? 1 : -1;
       if (this.boss.x > 0.82) dodgeDir = -1;
       if (this.boss.x < 0.18) dodgeDir = 1;
       const targetVx = dodgeDir * speed * (1 + this.config.bossDodgeReaction * 0.65);
       this.boss.vx += (targetVx - this.boss.vx) * Math.min(1, 8 * dt);
     } else {
-      // Patrol back and forth
       if (Math.abs(this.boss.vx) < speed * 0.6) {
         this.boss.vx = (this.boss.vx >= 0 ? 1 : -1) * speed * 0.8;
       }
@@ -468,7 +584,6 @@ export class SoccerBossGame {
         this._spawnParticles(b.x, b.y + 0.01, '#fb923c', 1);
       }
 
-      // Bounce off side walls
       if (b.x < 0.04) {
         b.x = 0.04;
         b.vx = Math.abs(b.vx);
@@ -477,13 +592,11 @@ export class SoccerBossGame {
         b.vx = -Math.abs(b.vx);
       }
 
-      // Out of top/bottom bounds
       if (b.y < -0.05 || b.y > 1.05) {
         this.balls.splice(i, 1);
         continue;
       }
 
-      // Check Queen block (unless Queen is frozen)
       if (b.vy < 0 && this.queenFreezeTimer <= 0) {
         const dq = this._distAspect(b.x, b.y, this.queen.x, this.queen.y);
         if (dq < b.r + this.queen.r * 0.95) {
@@ -496,7 +609,6 @@ export class SoccerBossGame {
         }
       }
 
-      // Check Boss hit!
       if (b.vy < 0) {
         const db = this._distAspect(b.x, b.y, this.boss.x, this.boss.y);
         if (db < b.r + this.boss.r * 1.05) {
@@ -549,7 +661,6 @@ export class SoccerBossGame {
     if (this.powerupTimer <= 0 && this.powerups.length < 2) {
       this.powerupTimer = this.config.powerupInterval;
       const type = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
-      // Find a safe spot away from cones
       for (let attempt = 0; attempt < 10; attempt++) {
         const px = 0.16 + Math.random() * 0.68;
         const py = 0.50 + Math.random() * 0.34;
@@ -656,6 +767,7 @@ export class SoccerBossGame {
     const W = this.width;
     const H = this.height;
     const world = this.config.world;
+    const tod = world.timeOfDay;
 
     ctx.save();
 
@@ -664,24 +776,17 @@ export class SoccerBossGame {
       ctx.translate((Math.random() - 0.5) * mag * 2, (Math.random() - 0.5) * mag * 2);
     }
 
-    // 1. Pitch Stripes
-    const stripeCount = 12;
-    const stripeH = H / stripeCount;
-    for (let i = 0; i < stripeCount; i++) {
-      ctx.fillStyle = i % 2 === 0 ? world.turfA : world.turfB;
-      ctx.fillRect(0, i * stripeH, W, stripeH + 1);
-    }
+    // 1. Unique Level Pitch Pattern & Colors
+    this._drawPitchPattern(W, H, world);
 
     // 2. Pitch Markings
     ctx.strokeStyle = world.lineColor;
     ctx.lineWidth = 2;
     ctx.strokeRect(10, 10, W - 20, H - 20);
 
-    // Boss goal box
     const boxW = W * 0.64;
     ctx.strokeRect((W - boxW) / 2, 10, boxW, H * 0.16);
 
-    // Center line & circle
     const midY = H * 0.42;
     ctx.beginPath();
     ctx.moveTo(10, midY);
@@ -692,16 +797,28 @@ export class SoccerBossGame {
     ctx.arc(W / 2, midY, W * 0.13, 0, Math.PI * 2);
     ctx.stroke();
 
-    // 3. Subtle Zigzag Slalom Guide Lines (shows Queen & Player zigzag tracks!)
-    this._drawZigzagGuide(this.config.queenCones, 'rgba(232, 121, 249, 0.22)');
-    this._drawZigzagGuide(this.config.playerCones, 'rgba(255, 255, 255, 0.14)');
+    // 3. Rain Ground Splashes
+    ctx.save();
+    ctx.strokeStyle = 'rgba(200, 230, 255, 0.38)';
+    ctx.lineWidth = 1.2;
+    for (const s of this.rainSplashes) {
+      ctx.globalAlpha = Math.max(0, (s.life / s.maxLife) * 0.45);
+      ctx.beginPath();
+      ctx.ellipse(s.x * W, s.y * H, s.r, s.r * 0.45, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
 
-    // 4. Aim Line from Player
+    // 4. Zigzag Slalom Guide Lines
+    this._drawZigzagGuide(this.config.queenCones, 'rgba(232, 121, 249, 0.24)');
+    this._drawZigzagGuide(this.config.playerCones, 'rgba(255, 255, 255, 0.16)');
+
+    // 5. Aim Line from Player
     if (this.player.hasBall && this.state === 'playing') {
       const px = this.player.x * W;
       const py = this.player.y * H;
       ctx.save();
-      ctx.strokeStyle = this.fireShotsLeft > 0 ? 'rgba(251, 146, 60, 0.55)' : 'rgba(255, 255, 255, 0.32)';
+      ctx.strokeStyle = this.fireShotsLeft > 0 ? 'rgba(251, 146, 60, 0.6)' : 'rgba(255, 255, 255, 0.34)';
       ctx.lineWidth = 2.5;
       ctx.setLineDash([6, 8]);
       ctx.beginPath();
@@ -711,14 +828,14 @@ export class SoccerBossGame {
       ctx.restore();
     }
 
-    // 5. Power-ups
+    // 6. Power-ups
     for (const p of this.powerups) {
       const x = p.x * W;
       const y = p.y * H + Math.sin(p.bob) * 4;
       const r = p.r * W;
       ctx.save();
       ctx.fillStyle = p.type.color;
-      ctx.globalAlpha = 0.26;
+      ctx.globalAlpha = 0.28;
       ctx.beginPath();
       ctx.arc(x, y, r * 1.4, 0, Math.PI * 2);
       ctx.fill();
@@ -737,36 +854,42 @@ export class SoccerBossGame {
       ctx.restore();
     }
 
-    // 6. Zigzag Cones
+    // 7. Zigzag Cones
     for (const cone of [...this.config.queenCones, ...this.config.playerCones]) {
-      this._drawCone(cone.x * W, cone.y * H, cone.r * W, world.coneColor);
+      this._drawCone(cone.x * W, cone.y * H, cone.r * W, world.coneColor, tod.shadowScale);
     }
 
-    // 7. Moving Defenders
+    // 8. Moving Defenders
     for (const d of this.defenders) {
       this._drawDefender(d.x * W, d.y * H, d.r * W);
     }
 
-    // 8. Boss
-    this._drawBoss(this.boss.x * W, this.boss.y * H, this.boss.r * W, world.bossColor);
+    // 9. Boss
+    this._drawBoss(this.boss.x * W, this.boss.y * H, this.boss.r * W, world.bossColor, tod.shadowScale);
 
-    // 9. Boss Queen
-    this._drawQueen(this.queen.x * W, this.queen.y * H, this.queen.r * W, world.queenColor);
+    // 10. Boss Queen
+    this._drawQueen(this.queen.x * W, this.queen.y * H, this.queen.r * W, world.queenColor, tod.shadowScale);
 
-    // 10. Player + Dribble Ball
-    this._drawPlayer(this.player.x * W, this.player.y * H, this.player.r * W);
+    // 11. Player + Dribble Ball
+    this._drawPlayer(this.player.x * W, this.player.y * H, this.player.r * W, tod.shadowScale);
 
-    // 11. Active Soccer Balls
+    // 12. Active Soccer Balls
     for (const b of this.balls) {
       this._drawSoccerBall(b.x * W, b.y * H, b.r * W, b.spin, b.fire);
     }
 
-    // 12. Queen's Thrown Hazards
+    // 13. Queen's Thrown Hazards
     for (const h of this.hazards) {
       this._drawHazard(h.x * W, h.y * H, h.r * W, h.rot);
     }
 
-    // 13. Particles
+    // 14. Day / Night Atmospheric Lighting + Stadium Spotlights
+    this._drawTimeOfDayLighting(W, H, tod);
+
+    // 15. Falling Rain Streaks & Jagged Lightning Bolts
+    this._drawRainAndLightning(W, H, world);
+
+    // 16. Particles
     for (const p of this.particles) {
       ctx.save();
       ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
@@ -777,7 +900,7 @@ export class SoccerBossGame {
       ctx.restore();
     }
 
-    // 14. Floating Texts
+    // 17. Floating Texts
     for (const t of this.floatingTexts) {
       ctx.save();
       ctx.globalAlpha = Math.max(0, t.life / t.maxLife);
@@ -791,13 +914,13 @@ export class SoccerBossGame {
       ctx.restore();
     }
 
-    // 15. Restart Red Vignette Flash
+    // 18. Restart Red Vignette Flash
     if (this.state === 'restarting') {
       ctx.fillStyle = `rgba(239, 68, 68, ${Math.min(0.42, this.restartTimer)})`;
       ctx.fillRect(0, 0, W, H);
     }
 
-    // 16. Confetti
+    // 19. Confetti
     for (const c of this.confetti) {
       ctx.save();
       ctx.translate(c.x * W, c.y * H);
@@ -808,6 +931,183 @@ export class SoccerBossGame {
     }
 
     ctx.restore();
+  }
+
+  _drawPitchPattern(W, H, world) {
+    const ctx = this.ctx;
+    const pattern = world.pitchPattern;
+
+    ctx.fillStyle = world.turfA;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.fillStyle = world.turfB;
+    if (pattern === 'stripes') {
+      const stripeCount = 12;
+      const stripeH = H / stripeCount;
+      for (let i = 0; i < stripeCount; i += 2) {
+        ctx.fillRect(0, i * stripeH, W, stripeH + 1);
+      }
+    } else if (pattern === 'checkered') {
+      const cols = 6;
+      const rows = 12;
+      const cw = W / cols;
+      const ch = H / rows;
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if ((r + c) % 2 === 0) {
+            ctx.fillRect(c * cw, r * ch, cw + 0.5, ch + 0.5);
+          }
+        }
+      }
+    } else if (pattern === 'circles') {
+      const cx = W / 2;
+      const cy = H * 0.45;
+      const maxR = Math.hypot(W, H);
+      const rings = 9;
+      for (let i = rings; i >= 1; i--) {
+        ctx.fillStyle = i % 2 === 0 ? world.turfB : world.turfA;
+        ctx.beginPath();
+        ctx.arc(cx, cy, (i / rings) * maxR, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else if (pattern === 'diagonal') {
+      ctx.save();
+      const step = 48;
+      for (let offset = -H; offset < W + H; offset += step * 2) {
+        ctx.beginPath();
+        ctx.moveTo(offset, 0);
+        ctx.lineTo(offset + step, 0);
+        ctx.lineTo(offset + step - H * 0.6, H);
+        ctx.lineTo(offset - H * 0.6, H);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    } else if (pattern === 'vertical') {
+      const cols = 7;
+      const cw = W / cols;
+      for (let c = 0; c < cols; c += 2) {
+        ctx.fillRect(c * cw, 0, cw + 0.5, H);
+      }
+    }
+  }
+
+  _drawTimeOfDayLighting(W, H, tod) {
+    const ctx = this.ctx;
+    ctx.save();
+
+    // Ambient tint overlay
+    ctx.fillStyle = tod.ambientOverlay;
+    ctx.fillRect(0, 0, W, H);
+
+    if (tod.sunbeams) {
+      // Warm diagonal sunbeams for dawn/morning/noon
+      const grad = ctx.createLinearGradient(0, 0, W, H * 0.7);
+      grad.addColorStop(0, 'rgba(255, 250, 200, 0.14)');
+      grad.addColorStop(0.5, 'rgba(255, 250, 200, 0.04)');
+      grad.addColorStop(1, 'rgba(255, 250, 200, 0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    if (tod.isNight) {
+      // Stadium floodlight pools illuminating the Player, Queen, and Boss
+      ctx.globalCompositeOperation = 'screen';
+      const spots = [
+        { x: this.player.x * W, y: this.player.y * H, r: W * 0.26, color: 'rgba(186, 230, 253, 0.24)' },
+        { x: this.queen.x * W, y: this.queen.y * H, r: W * 0.24, color: 'rgba(245, 208, 254, 0.22)' },
+        { x: this.boss.x * W, y: this.boss.y * H, r: W * 0.28, color: 'rgba(254, 240, 138, 0.24)' },
+      ];
+      for (const s of spots) {
+        const g = ctx.createRadialGradient(s.x, s.y, 4, s.x, s.y, s.r);
+        g.addColorStop(0, s.color);
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    ctx.restore();
+  }
+
+  _drawRainAndLightning(W, H, world) {
+    const ctx = this.ctx;
+    const wind = world.weather.rainWind;
+
+    // 1. Rain streaks
+    ctx.save();
+    ctx.strokeStyle = 'rgba(215, 238, 255, 0.62)';
+    ctx.lineWidth = 1.35;
+    ctx.lineCap = 'round';
+    for (const d of this.rainDrops) {
+      ctx.globalAlpha = d.alpha;
+      const x1 = d.x * W;
+      const y1 = d.y * H;
+      const x2 = x1 + wind * W * 0.14;
+      const y2 = y1 + d.len * H;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // 2. Jagged Lightning Bolts
+    for (const bolt of this.lightningBolts) {
+      const alpha = Math.max(0, bolt.life / bolt.maxLife);
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      // Outer cyan-blue electric glow
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.85)';
+      ctx.lineWidth = 7;
+      ctx.beginPath();
+      for (const seg of bolt.segments) {
+        ctx.moveTo(seg.x1 * W, seg.y1 * H);
+        ctx.lineTo(seg.x2 * W, seg.y2 * H);
+      }
+      ctx.stroke();
+
+      // Core bright white bolt
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2.6;
+      ctx.beginPath();
+      for (const seg of bolt.segments) {
+        ctx.moveTo(seg.x1 * W, seg.y1 * H);
+        ctx.lineTo(seg.x2 * W, seg.y2 * H);
+      }
+      for (const br of bolt.branches) {
+        ctx.moveTo(br.x1 * W, br.y1 * H);
+        ctx.lineTo(br.x2 * W, br.y2 * H);
+      }
+      ctx.stroke();
+
+      // Impact flash circle on pitch
+      const gx = bolt.hitX * W;
+      const gy = bolt.hitY * H;
+      const g = ctx.createRadialGradient(gx, gy, 2, gx, gy, W * 0.16);
+      g.addColorStop(0, 'rgba(255, 255, 255, 0.85)');
+      g.addColorStop(0.4, 'rgba(56, 189, 248, 0.35)');
+      g.addColorStop(1, 'rgba(56, 189, 248, 0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(gx, gy, W * 0.16, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    // 3. Full-screen sky lightning flash
+    if (this.lightningFlash > 0) {
+      ctx.save();
+      ctx.fillStyle = `rgba(224, 242, 254, ${Math.min(0.42, this.lightningFlash * 1.15)})`;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    }
   }
 
   _drawZigzagGuide(cones, strokeStyle) {
@@ -828,22 +1128,19 @@ export class SoccerBossGame {
     ctx.restore();
   }
 
-  _drawCone(x, y, r, color) {
+  _drawCone(x, y, r, color, shadowScale = 1) {
     const ctx = this.ctx;
     ctx.save();
-    // Shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.fillStyle = 'rgba(0,0,0,0.34)';
     ctx.beginPath();
-    ctx.ellipse(x, y + r * 0.55, r * 1.05, r * 0.45, 0, 0, Math.PI * 2);
+    ctx.ellipse(x + (shadowScale - 1) * 4, y + r * 0.55, r * 1.05 * shadowScale, r * 0.45, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Base square/oval
     ctx.fillStyle = color;
     ctx.beginPath();
     ctx.ellipse(x, y + r * 0.35, r * 0.95, r * 0.45, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Cone triangle
     ctx.beginPath();
     ctx.moveTo(x - r * 0.72, y + r * 0.35);
     ctx.lineTo(x, y - r * 1.05);
@@ -851,7 +1148,6 @@ export class SoccerBossGame {
     ctx.closePath();
     ctx.fill();
 
-    // Reflective white stripe
     ctx.fillStyle = 'rgba(255,255,255,0.92)';
     ctx.beginPath();
     ctx.moveTo(x - r * 0.42, y - r * 0.12);
@@ -863,18 +1159,16 @@ export class SoccerBossGame {
     ctx.restore();
   }
 
-  _drawBoss(x, y, r, color) {
+  _drawBoss(x, y, r, color, shadowScale = 1) {
     const ctx = this.ctx;
     ctx.save();
     const bob = Math.sin(this.boss.angryPhase) * 2.5;
 
-    // Shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fillStyle = 'rgba(0,0,0,0.38)';
     ctx.beginPath();
-    ctx.ellipse(x, y + r * 0.85, r * 1.0, r * 0.38, 0, 0, Math.PI * 2);
+    ctx.ellipse(x, y + r * 0.85, r * 1.0 * shadowScale, r * 0.38, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Body
     ctx.fillStyle = this.boss.hitFlash > 0 ? '#ffffff' : color;
     ctx.strokeStyle = '#111827';
     ctx.lineWidth = 3;
@@ -883,7 +1177,6 @@ export class SoccerBossGame {
     ctx.fill();
     ctx.stroke();
 
-    // Horns
     ctx.fillStyle = '#fde047';
     ctx.beginPath();
     ctx.moveTo(x - r * 0.7, y - r * 0.55 + bob);
@@ -899,7 +1192,6 @@ export class SoccerBossGame {
     ctx.closePath();
     ctx.fill();
 
-    // Angry Eyes
     ctx.fillStyle = '#fff';
     ctx.beginPath();
     ctx.arc(x - r * 0.32, y - r * 0.08 + bob, r * 0.2, 0, Math.PI * 2);
@@ -912,7 +1204,6 @@ export class SoccerBossGame {
     ctx.arc(x + r * 0.3, y - r * 0.05 + bob, r * 0.09, 0, Math.PI * 2);
     ctx.fill();
 
-    // Angry eyebrows
     ctx.strokeStyle = '#111';
     ctx.lineWidth = 3;
     ctx.beginPath();
@@ -922,16 +1213,15 @@ export class SoccerBossGame {
     ctx.lineTo(x + r * 0.12, y - r * 0.18 + bob);
     ctx.stroke();
 
-    // HP pill right below Boss
     ctx.font = '800 11px system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillStyle = '#fff';
-    ctx.fillText(`❤️ ${this.boss.hp}`, x, y + r + 13);
+    ctx.fillText(`❤️ ${this.boss.hp}/${this.boss.maxHp}`, x, y + r + 13);
 
     ctx.restore();
   }
 
-  _drawQueen(x, y, r, color) {
+  _drawQueen(x, y, r, color, shadowScale = 1) {
     const ctx = this.ctx;
     ctx.save();
     const frozen = this.queenFreezeTimer > 0;
@@ -940,13 +1230,11 @@ export class SoccerBossGame {
     ctx.translate(x, y);
     ctx.rotate(tilt);
 
-    // Shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.32)';
+    ctx.fillStyle = 'rgba(0,0,0,0.34)';
     ctx.beginPath();
-    ctx.ellipse(0, r * 0.85, r * 0.95, r * 0.35, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, r * 0.85, r * 0.95 * shadowScale, r * 0.35, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Cape / Shield aura
     ctx.fillStyle = this.queen.blockFlash > 0 ? '#ffffff' : frozen ? '#38bdf8' : color;
     ctx.strokeStyle = '#fef08a';
     ctx.lineWidth = 2.5;
@@ -955,7 +1243,6 @@ export class SoccerBossGame {
     ctx.fill();
     ctx.stroke();
 
-    // Golden Crown
     ctx.fillStyle = '#facc15';
     ctx.beginPath();
     ctx.moveTo(-r * 0.55, -r * 0.72);
@@ -968,7 +1255,6 @@ export class SoccerBossGame {
     ctx.closePath();
     ctx.fill();
 
-    // Eyes
     ctx.fillStyle = '#fff';
     ctx.beginPath();
     ctx.arc(-r * 0.28, -r * 0.05, r * 0.16, 0, Math.PI * 2);
@@ -981,7 +1267,6 @@ export class SoccerBossGame {
     ctx.arc(r * 0.26, -r * 0.02, r * 0.08, 0, Math.PI * 2);
     ctx.fill();
 
-    // Ice block overlay if frozen
     if (frozen) {
       ctx.fillStyle = 'rgba(186, 230, 253, 0.52)';
       ctx.strokeStyle = '#e0f2fe';
@@ -1011,11 +1296,10 @@ export class SoccerBossGame {
     ctx.restore();
   }
 
-  _drawPlayer(x, y, r) {
+  _drawPlayer(x, y, r, shadowScale = 1) {
     const ctx = this.ctx;
     ctx.save();
 
-    // Turbo aura
     if (this.turboTimer > 0) {
       ctx.fillStyle = 'rgba(250, 204, 21, 0.28)';
       ctx.beginPath();
@@ -1023,13 +1307,11 @@ export class SoccerBossGame {
       ctx.fill();
     }
 
-    // Shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.32)';
+    ctx.fillStyle = 'rgba(0,0,0,0.34)';
     ctx.beginPath();
-    ctx.ellipse(x, y + r * 0.85, r * 0.9, r * 0.35, 0, 0, Math.PI * 2);
+    ctx.ellipse(x, y + r * 0.85, r * 0.9 * shadowScale, r * 0.35, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Jersey Body
     ctx.fillStyle = '#2563eb';
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 2.5;
@@ -1038,14 +1320,12 @@ export class SoccerBossGame {
     ctx.fill();
     ctx.stroke();
 
-    // Jersey number "10"
     ctx.fillStyle = '#ffffff';
     ctx.font = `800 ${Math.round(r * 0.95)}px system-ui, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('10', x, y + 1);
 
-    // Dribble ball right in front of player
     if (this.player.hasBall) {
       const ballR = r * 0.62;
       this._drawSoccerBall(x, y - r * 1.28, ballR, this.player.ballSpin, this.fireShotsLeft > 0);
@@ -1075,7 +1355,6 @@ export class SoccerBossGame {
     ctx.fill();
     ctx.stroke();
 
-    // Classic pentagon patches
     ctx.fillStyle = isFire ? '#dc2626' : '#0f172a';
     ctx.beginPath();
     ctx.arc(0, 0, r * 0.34, 0, Math.PI * 2);
@@ -1133,7 +1412,6 @@ export class SoccerBossGame {
       this.keys.delete(e.code);
     });
 
-    // Mobile & mouse pointer controls on canvas
     this.canvas.addEventListener('pointerdown', (e) => {
       sound.unlock();
       if (this.state !== 'playing') return;
@@ -1165,7 +1443,6 @@ export class SoccerBossGame {
       const dy = y - this.pointer.lastY;
       this.pointer.movedDist += Math.hypot(dx, dy);
 
-      // Direct responsive relative drag (finger never hides the player!)
       const dragGain = this.turboTimer > 0 ? 1.38 : 1.18;
       this.player.x += dx * dragGain;
       this.player.y += dy * dragGain;
@@ -1181,7 +1458,6 @@ export class SoccerBossGame {
       const elapsed = performance.now() - this.pointer.startTime;
       const totalDy = this.pointer.lastY - this.pointer.startY;
 
-      // Quick upward swipe OR quick tap on canvas triggers a kick!
       if (elapsed < 280 && (totalDy < -0.055 || this.pointer.movedDist < 0.025)) {
         this.shoot();
       }

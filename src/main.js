@@ -32,9 +32,11 @@ const progress = loadProgress();
 sound.setMuted(progress.muted);
 
 // DOM references
+const hudEl = document.querySelector('.hud');
 const canvas = document.getElementById('game-canvas');
 const hudLevel = document.getElementById('hud-level');
 const hudWorld = document.getElementById('hud-world');
+const hudTime = document.getElementById('hud-time');
 const bossHpText = document.getElementById('boss-hp-text');
 const bossHpFill = document.getElementById('boss-hp-fill');
 const powerupBar = document.getElementById('powerup-bar');
@@ -79,9 +81,15 @@ function showToast(msg, isGood = false) {
 }
 
 const game = new SoccerBossGame(canvas, {
-  onHudUpdate: ({ level, worldName, bossHp, bossMaxHp, fireShots, freezeTime, turboTime }) => {
+  onHudUpdate: ({ level, worldName, timeLabel, hue, bossHp, bossMaxHp, fireShots, freezeTime, turboTime }) => {
     hudLevel.textContent = String(level);
     hudWorld.textContent = worldName;
+    if (hudTime && timeLabel) {
+      hudTime.textContent = timeLabel;
+    }
+    if (hudEl && typeof hue === 'number') {
+      hudEl.style.background = `linear-gradient(180deg, hsla(${hue}, 48%, 12%, 0.96) 0%, hsla(${hue}, 42%, 16%, 0.90) 100%)`;
+    }
     bossHpText.textContent = `${bossHp} / ${bossMaxHp} ❤️`;
     bossHpFill.style.width = `${(bossHp / bossMaxHp) * 100}%`;
 
@@ -114,7 +122,7 @@ const game = new SoccerBossGame(canvas, {
     } else {
       winIcon.textContent = level % 10 === 0 ? '🏆🌟' : '⚽🏆';
       winTitle.textContent = level % 10 === 0 ? `סיימת עולם שלם! (שלב ${level})` : `ניצחת את שלב ${level}!`;
-      winDesc.textContent = 'הבוס הובס ב-10 פגיעות! מוכן לאתגר הבא?';
+      winDesc.textContent = 'הבוס הובס ב-5 פגיעות! מוכן לאתגר הבא?';
       btnNextLevel.textContent = `לשלב ${nextLvl} ⬅️`;
     }
 
@@ -149,6 +157,13 @@ btnRestart.addEventListener('click', () => {
   showToast('השלב התחיל מחדש! ⚽', true);
 });
 
+if (hudTime) {
+  hudTime.addEventListener('click', () => {
+    sound.unlock();
+    game.triggerLightning();
+  });
+}
+
 btnSound.addEventListener('click', () => {
   progress.muted = !progress.muted;
   sound.setMuted(progress.muted);
@@ -156,7 +171,7 @@ btnSound.addEventListener('click', () => {
   saveProgress(progress);
 });
 
-// Dedicated mobile Shoot button (supports rapid tap and multi-touch while dragging)
+// Dedicated mobile Shoot button
 const handleShootPress = (e) => {
   e.preventDefault();
   sound.unlock();
