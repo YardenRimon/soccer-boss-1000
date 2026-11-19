@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f291e" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>כדורגל בוס 1000 — קונוסים בזיגזג</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚽</text></svg>" />
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <!-- Top HUD -->
+    <header class="hud" aria-label="נתוני שלב">
+      <div class="hud-row hud-top">
+        <button id="btn-levels" class="hud-pill hud-btn" type="button" aria-label="בחירת שלב">
+          <span class="pill-label">שלב</span>
+          <strong id="hud-level">1</strong>
+          <span class="pill-sub">/ 1000</span>
+        </button>
+
+        <div id="hud-world" class="world-badge">אצטדיון הבית</div>
+
+        <div class="hud-actions">
+          <button id="btn-restart" class="icon-btn" type="button" aria-label="התחל שלב מחדש" title="התחל מחדש">↻</button>
+          <button id="btn-sound" class="icon-btn" type="button" aria-label="השתק או הפעל קול" title="צלילים">🔊</button>
+        </div>
+      </div>
+
+      <!-- Boss HP Bar (10 Hits) -->
+      <div class="boss-bar-wrap" aria-label="חיים של הבוס">
+        <div class="boss-bar-header">
+          <span class="boss-title">👹 הבוס</span>
+          <span id="boss-hp-text" class="boss-hp-text">10 / 10 ❤️</span>
+        </div>
+        <div class="boss-hp-track" role="progressbar" aria-valuemin="0" aria-valuemax="10" aria-valuenow="10">
+          <div id="boss-hp-fill" class="boss-hp-fill"></div>
+          <div class="boss-hp-segments" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Active Power-up Status -->
+      <div id="powerup-bar" class="powerup-bar" aria-live="polite"></div>
+    </header>
+
+    <!-- Main Playfield -->
+    <main class="stage-wrap">
+      <canvas id="game-canvas" aria-label="מגרש המשחק"></canvas>
+
+      <!-- Quick restart flash message -->
+      <div id="toast" class="toast" aria-live="assertive"></div>
+
+      <!-- Mobile Controls Overlay -->
+      <div class="controls-overlay" aria-hidden="false">
+        <div class="touch-hint" id="touch-hint">גרור עם האצבע לתנועה בזיגזג • החלק למעלה או לחץ לבעיטה</div>
+        <button id="btn-shoot" class="shoot-btn" type="button" aria-label="בעט בכדור">
+          <span class="shoot-icon">⚽</span>
+          <span class="shoot-label">בעיטה!</span>
+        </button>
+      </div>
+    </main>
+  </div>
+
+  <!-- Start / Intro Modal -->
+  <dialog id="modal-start" class="game-dialog">
+    <div class="dialog-card">
+      <div class="hero-emblem">⚽👑👹</div>
+      <h1>כדורגל בוס 1000</h1>
+      <p class="subtitle">1,000 שלבים של כדרור בזיגזג מול המלכה והבוס!</p>
+
+      <ul class="rules-list">
+        <li><span>🚧</span> <strong>קונוסים בזיגזג:</strong> החלק בין הקונוסים בלי לגעת בהם. נגיעה = התחלה מיד מהתחלה!</li>
+        <li><span>👑</span> <strong>הבוסית המלכה:</strong> מחליקה בזיגזג מולך וחוסמת בעיטות. הטעה אותה ובעט דרך הרווחים!</li>
+        <li><span>👹</span> <strong>10 פגיעות בבוס:</strong> פגע בבוס 10 פעמים כדי לנצח ולעבור לשלב הבא.</li>
+        <li><span>🔥</span> <strong>כוחות מיוחדים:</strong> אסוף כדור אש (3x נזק), הקפאת מלכה וספרינט!</li>
+      </ul>
+
+      <div class="controls-mini">
+        <span>📱 מובייל: גרור לתנועה + כפתור בעיטה / החלקה למעלה</span>
+        <span>💻 מחשב: חיצים / WASD + רווח לבעיטה</span>
+      </div>
+
+      <button id="btn-play" class="primary-btn" type="button">יאללה לשחק! ⚽</button>
+    </div>
+  </dialog>
+
+  <!-- Victory Modal -->
+  <dialog id="modal-win" class="game-dialog">
+    <div class="dialog-card win-card">
+      <div id="win-icon" class="hero-emblem">🏆</div>
+      <h2 id="win-title">ניצחת את השלב!</h2>
+      <p id="win-desc" class="subtitle">הבוס הובס ב-10 פגיעות!</p>
+      <div class="win-stats">
+        <div class="stat-box">
+          <span class="stat-label">שלב</span>
+          <strong id="win-level">1</strong>
+        </div>
+        <div class="stat-box">
+          <span class="stat-label">זמן</span>
+          <strong id="win-time">0.0 שנ׳</strong>
+        </div>
+      </div>
+      <button id="btn-next-level" class="primary-btn" type="button">לשלב הבא ⬅️</button>
+    </div>
+  </dialog>
+
+  <!-- Level Picker Modal -->
+  <dialog id="modal-levels" class="game-dialog">
+    <div class="dialog-card levels-card">
+      <div class="dialog-header">
+        <h2>בחירת שלב (1–1000)</h2>
+        <button id="btn-close-levels" class="icon-btn" type="button" aria-label="סגור">✕</button>
+      </div>
+
+      <div class="level-jump-row">
+        <label for="input-level-jump">קפיצה לשלב:</label>
+        <input id="input-level-jump" type="number" min="1" max="1000" value="1" inputmode="numeric" />
+        <button id="btn-jump-go" class="secondary-btn" type="button">עבור</button>
+      </div>
+
+      <label class="unlock-toggle">
+        <input id="chk-unlock-all" type="checkbox" />
+        <span>מצב חופשי (פתח את כל 1,000 השלבים לבדיקה)</span>
+      </label>
+
+      <div id="worlds-list" class="worlds-list"></div>
+    </div>
+  </dialog>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
