@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0f291e" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>כדורגל בוס 1000 — קונוסים בזיגזג</title>
+  <title>כדורגל בוס 100 — קונוסים בזיגזג</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚽</text></svg>" />
   <link rel="stylesheet" href="./style.css" />
 </head>
@@ -18,7 +18,7 @@
         <button id="btn-levels" class="hud-pill hud-btn" type="button" aria-label="בחירת שלב">
           <span class="pill-label">שלב</span>
           <strong id="hud-level">1</strong>
-          <span class="pill-sub">/ 1000</span>
+          <span class="pill-sub">/ 100</span>
         </button>
 
         <div id="hud-world" class="world-badge">אצטדיון הבית</div>
@@ -70,8 +70,8 @@
   <dialog id="modal-start" class="game-dialog">
     <div class="dialog-card">
       <div class="hero-emblem">⚽👑👹</div>
-      <h1>כדורגל בוס 1000</h1>
-      <p class="subtitle">1,000 שלבים של כדרור בזיגזג מול המלכה והבוס!</p>
+      <h1>כדורגל בוס 100</h1>
+      <p class="subtitle">100 שלבים ב-10 עולמות של כדרור בזיגזג מול המלכה והבוס!</p>
 
       <ul class="rules-list">
         <li><span>🚧</span> <strong>קונוסים בזיגזג:</strong> החלק בין הקונוסים בלי לגעת בהם. נגיעה = התחלה מיד מהתחלה!</li>
@@ -113,19 +113,19 @@
   <dialog id="modal-levels" class="game-dialog">
     <div class="dialog-card levels-card">
       <div class="dialog-header">
-        <h2>בחירת שלב (1–1000)</h2>
+        <h2>בחירת שלב (1–100)</h2>
         <button id="btn-close-levels" class="icon-btn" type="button" aria-label="סגור">✕</button>
       </div>
 
       <div class="level-jump-row">
         <label for="input-level-jump">קפיצה לשלב:</label>
-        <input id="input-level-jump" type="number" min="1" max="1000" value="1" inputmode="numeric" />
+        <input id="input-level-jump" type="number" min="1" max="100" value="1" inputmode="numeric" />
         <button id="btn-jump-go" class="secondary-btn" type="button">עבור</button>
       </div>
 
       <label class="unlock-toggle">
         <input id="chk-unlock-all" type="checkbox" />
-        <span>מצב חופשי (פתח את כל 1,000 השלבים לבדיקה)</span>
+        <span>מצב חופשי (פתח את כל 100 השלבים לבדיקה)</span>
       </label>
 
       <div id="worlds-list" class="worlds-list"></div>

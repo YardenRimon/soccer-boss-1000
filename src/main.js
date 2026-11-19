@@ -1,8 +1,8 @@
 import { sound } from './audio.js';
 import { SoccerBossGame } from './game.js';
-import { WORLDS } from './worlds.js';
+import { TOTAL_LEVELS, WORLDS } from './worlds.js';
 
-const STORAGE_KEY = 'soccer_boss_1000_save_v1';
+const STORAGE_KEY = 'soccer_boss_100_save_v1';
 
 function loadProgress() {
   try {
@@ -10,8 +10,8 @@ function loadProgress() {
     if (!raw) return { currentLevel: 1, maxUnlocked: 1, unlockAll: false, muted: false };
     const parsed = JSON.parse(raw);
     return {
-      currentLevel: Math.max(1, Math.min(1000, Number(parsed.currentLevel) || 1)),
-      maxUnlocked: Math.max(1, Math.min(1000, Number(parsed.maxUnlocked) || 1)),
+      currentLevel: Math.max(1, Math.min(TOTAL_LEVELS, Number(parsed.currentLevel) || 1)),
+      maxUnlocked: Math.max(1, Math.min(TOTAL_LEVELS, Number(parsed.maxUnlocked) || 1)),
       unlockAll: Boolean(parsed.unlockAll),
       muted: Boolean(parsed.muted),
     };
@@ -96,24 +96,24 @@ const game = new SoccerBossGame(canvas, {
     touchHint.classList.add('hidden');
   },
   onWin: ({ level, time, isFinale }) => {
-    const nextLvl = Math.min(1000, level + 1);
+    const nextLvl = Math.min(TOTAL_LEVELS, level + 1);
     if (nextLvl > progress.maxUnlocked) {
       progress.maxUnlocked = nextLvl;
     }
     progress.currentLevel = nextLvl;
     saveProgress(progress);
 
-    winLevel.textContent = `${level} / 1000`;
+    winLevel.textContent = `${level} / ${TOTAL_LEVELS}`;
     winTime.textContent = `${time.toFixed(1)} שנ׳`;
 
     if (isFinale) {
       winIcon.textContent = '🏆🎆👑';
-      winTitle.textContent = 'אלוף 1,000 השלבים!';
+      winTitle.textContent = 'אלוף 100 השלבים!';
       winDesc.textContent = 'הבסת את הבוס והמלכה בגמר הגדול!';
       btnNextLevel.textContent = 'שחק שוב מהתחלה ⚽';
     } else {
-      winIcon.textContent = level % 100 === 0 ? '🏆🌟' : '⚽🏆';
-      winTitle.textContent = level % 100 === 0 ? `סיימת עולם שלם! (שלב ${level})` : `ניצחת את שלב ${level}!`;
+      winIcon.textContent = level % 10 === 0 ? '🏆🌟' : '⚽🏆';
+      winTitle.textContent = level % 10 === 0 ? `סיימת עולם שלם! (שלב ${level})` : `ניצחת את שלב ${level}!`;
       winDesc.textContent = 'הבוס הובס ב-10 פגיעות! מוכן לאתגר הבא?';
       btnNextLevel.textContent = `לשלב ${nextLvl} ⬅️`;
     }
@@ -137,7 +137,7 @@ btnPlay.addEventListener('click', () => {
 btnNextLevel.addEventListener('click', () => {
   sound.unlock();
   modalWin.close();
-  const target = game.config.isFinale ? 1 : Math.min(1000, game.config.level + 1);
+  const target = game.config.isFinale ? 1 : Math.min(TOTAL_LEVELS, game.config.level + 1);
   progress.currentLevel = target;
   saveProgress(progress);
   game.loadLevel(target, true);
@@ -191,8 +191,8 @@ function renderWorldsList() {
 }
 
 function selectLevel(lvl) {
-  const clamped = Math.max(1, Math.min(1000, Math.floor(lvl)));
-  const maxAllowed = progress.unlockAll ? 1000 : progress.maxUnlocked;
+  const clamped = Math.max(1, Math.min(TOTAL_LEVELS, Math.floor(lvl)));
+  const maxAllowed = progress.unlockAll ? TOTAL_LEVELS : progress.maxUnlocked;
   if (clamped > maxAllowed) {
     showToast(`שלב ${clamped} עדיין נעול (הגעת עד ${progress.maxUnlocked})`, false);
     return;
@@ -206,7 +206,7 @@ function selectLevel(lvl) {
 btnLevels.addEventListener('click', () => {
   game.setPlaying(false);
   inputLevelJump.value = String(game.config.level);
-  inputLevelJump.max = String(progress.unlockAll ? 1000 : progress.maxUnlocked);
+  inputLevelJump.max = String(progress.unlockAll ? TOTAL_LEVELS : progress.maxUnlocked);
   renderWorldsList();
   modalLevels.showModal();
 });
@@ -227,6 +227,6 @@ btnJumpGo.addEventListener('click', () => {
 chkUnlockAll.addEventListener('change', () => {
   progress.unlockAll = chkUnlockAll.checked;
   saveProgress(progress);
-  inputLevelJump.max = String(progress.unlockAll ? 1000 : progress.maxUnlocked);
+  inputLevelJump.max = String(progress.unlockAll ? TOTAL_LEVELS : progress.maxUnlocked);
   renderWorldsList();
 });

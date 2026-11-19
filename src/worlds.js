@@ -1,11 +1,13 @@
-// 10 Themed Worlds across 1,000 deterministic procedural levels
+// 10 Themed Worlds across 100 deterministic procedural levels (10 levels per world)
+
+export const TOTAL_LEVELS = 100;
 
 export const WORLDS = [
   {
     id: 1,
     name: 'אצטדיון הבית',
     emoji: '⚽',
-    range: [1, 100],
+    range: [1, 10],
     turfA: '#1d7a46',
     turfB: '#18693b',
     lineColor: 'rgba(255,255,255,0.45)',
@@ -18,7 +20,7 @@ export const WORLDS = [
     id: 2,
     name: 'מגרש שכונתי',
     emoji: '🏙️',
-    range: [101, 200],
+    range: [11, 20],
     turfA: '#334155',
     turfB: '#283548',
     lineColor: 'rgba(250,204,21,0.55)',
@@ -31,7 +33,7 @@ export const WORLDS = [
     id: 3,
     name: 'אצטדיון הקרח',
     emoji: '❄️',
-    range: [201, 300],
+    range: [21, 30],
     turfA: '#0ea5e9',
     turfB: '#0284c7',
     lineColor: 'rgba(255,255,255,0.7)',
@@ -44,7 +46,7 @@ export const WORLDS = [
     id: 4,
     name: 'מדבר הלהט',
     emoji: '🏜️',
-    range: [301, 400],
+    range: [31, 40],
     turfA: '#ca8a04',
     turfB: '#b47803',
     lineColor: 'rgba(255,248,220,0.55)',
@@ -57,7 +59,7 @@ export const WORLDS = [
     id: 5,
     name: "ג'ונגל האמזונס",
     emoji: '🌴',
-    range: [401, 500],
+    range: [41, 50],
     turfA: '#15803d',
     turfB: '#14532d',
     lineColor: 'rgba(187,247,208,0.5)',
@@ -70,7 +72,7 @@ export const WORLDS = [
     id: 6,
     name: 'הר הגעש',
     emoji: '🌋',
-    range: [501, 600],
+    range: [51, 60],
     turfA: '#451a03',
     turfB: '#361302',
     lineColor: 'rgba(251,146,60,0.6)',
@@ -83,7 +85,7 @@ export const WORLDS = [
     id: 7,
     name: 'עיר הניאון',
     emoji: '⚡',
-    range: [601, 700],
+    range: [61, 70],
     turfA: '#1e1b4b',
     turfB: '#17143b',
     lineColor: 'rgba(34,211,238,0.65)',
@@ -96,7 +98,7 @@ export const WORLDS = [
     id: 8,
     name: 'חוף טרופי',
     emoji: '🏖️',
-    range: [701, 800],
+    range: [71, 80],
     turfA: '#d97706',
     turfB: '#c26905',
     lineColor: 'rgba(255,255,255,0.6)',
@@ -109,7 +111,7 @@ export const WORLDS = [
     id: 9,
     name: 'ארמון המלכה',
     emoji: '👑',
-    range: [801, 900],
+    range: [81, 90],
     turfA: '#4c1d95',
     turfB: '#3b0764',
     lineColor: 'rgba(250,204,21,0.65)',
@@ -122,7 +124,7 @@ export const WORLDS = [
     id: 10,
     name: 'גלקסיית האלופים',
     emoji: '🌌',
-    range: [901, 1000],
+    range: [91, 100],
     turfA: '#0f172a',
     turfB: '#090e1c',
     lineColor: 'rgba(167,139,250,0.65)',
@@ -134,8 +136,8 @@ export const WORLDS = [
 ];
 
 export function getWorldForLevel(level) {
-  const clamped = Math.max(1, Math.min(1000, level));
-  const idx = Math.floor((clamped - 1) / 100);
+  const clamped = Math.max(1, Math.min(TOTAL_LEVELS, level));
+  const idx = Math.floor((clamped - 1) / 10);
   return WORLDS[idx] || WORLDS[0];
 }
 
@@ -160,16 +162,16 @@ function mulberry32(seed) {
  *   0.82 - 0.94 : Player spawn area
  */
 export function generateLevelConfig(level) {
-  const lvl = Math.max(1, Math.min(1000, Math.floor(level)));
+  const lvl = Math.max(1, Math.min(TOTAL_LEVELS, Math.floor(level)));
   const world = getWorldForLevel(lvl);
   const rand = mulberry32(lvl * 7919 + 1337);
 
-  // Progress curve: quick ramp early, smooth mastery up to 1000
-  const p = (lvl - 1) / 999; // 0..1
-  const easyRamp = Math.min(1, (lvl - 1) / 40); // 0..1 over first 40 levels
+  // Smooth progression curve across 100 levels (10 worlds x 10 levels)
+  const p = (lvl - 1) / (TOTAL_LEVELS - 1); // 0..1
+  const easyRamp = Math.min(1, (lvl - 1) / 15); // 0..1 over first 15 levels
 
   // Zigzag cones for the Queen's sliding corridor (she weaves between them!)
-  const queenConeCount = lvl < 5 ? 3 : lvl < 30 ? 4 : 5;
+  const queenConeCount = lvl < 4 ? 3 : lvl < 20 ? 4 : 5;
   const queenCones = [];
   const qStartX = 0.16;
   const qEndX = 0.84;
@@ -183,7 +185,7 @@ export function generateLevelConfig(level) {
   }
 
   // Zigzag cones for the Player's field (facing the Queen)
-  const playerConeRows = lvl < 4 ? 3 : lvl < 25 ? 4 : lvl < 150 ? 5 : 6;
+  const playerConeRows = lvl < 4 ? 3 : lvl < 15 ? 4 : lvl < 45 ? 5 : 6;
   const playerCones = [];
   const startY = 0.48;
   const endY = 0.77;
@@ -199,7 +201,7 @@ export function generateLevelConfig(level) {
     playerCones.push({ x, y, zone: 'player', r: 0.034 });
 
     // On higher levels, add a secondary outer cone to tighten the zigzag slalom
-    if (lvl >= 20 && i % 2 === 1 && rand() < 0.35 + p * 0.45) {
+    if (lvl >= 12 && i % 2 === 1 && rand() < 0.35 + p * 0.45) {
       const oppositeX = Math.max(0.14, Math.min(0.86, 0.5 - side * (0.28 + rand() * 0.08)));
       if (Math.abs(oppositeX - x) > 0.24) {
         playerCones.push({ x: oppositeX, y: y + (rand() - 0.5) * 0.02, zone: 'player', r: 0.03 });
@@ -207,10 +209,10 @@ export function generateLevelConfig(level) {
     }
   }
 
-  // Moving side defenders on higher levels (level 15+)
+  // Moving side defenders on higher levels (level 11+)
   const movingDefenders = [];
-  if (lvl >= 15) {
-    const count = lvl < 120 ? 1 : lvl < 450 ? 2 : 3;
+  if (lvl >= 11) {
+    const count = lvl < 35 ? 1 : lvl < 70 ? 2 : 3;
     for (let i = 0; i < count; i++) {
       const y = 0.54 + (i / Math.max(1, count)) * 0.18;
       movingDefenders.push({
@@ -227,16 +229,16 @@ export function generateLevelConfig(level) {
     level: lvl,
     world,
     bossMaxHp: 10, // Always 10 hits per user requirement!
-    bossSpeed: 0.22 + easyRamp * 0.16 + p * 0.32,
-    bossDodgeReaction: 0.35 + easyRamp * 0.25 + p * 0.35,
-    queenSpeed: 0.26 + easyRamp * 0.18 + p * 0.34,
-    queenShotInterval: lvl < 3 ? 0 : Math.max(1.25, 3.6 - easyRamp * 0.9 - p * 1.45),
+    bossSpeed: 0.22 + easyRamp * 0.15 + p * 0.32,
+    bossDodgeReaction: 0.35 + easyRamp * 0.22 + p * 0.35,
+    queenSpeed: 0.26 + easyRamp * 0.16 + p * 0.34,
+    queenShotInterval: lvl < 3 ? 0 : Math.max(1.25, 3.6 - easyRamp * 0.85 - p * 1.45),
     queenShotSpeed: 0.30 + p * 0.28,
     queenCones,
     playerCones,
     movingDefenders,
     powerupInterval: Math.max(4.8, 7.5 - p * 1.8),
-    isFinale: lvl === 1000,
-    isMilestone: lvl % 100 === 0,
+    isFinale: lvl === TOTAL_LEVELS,
+    isMilestone: lvl % 10 === 0,
   };
 }
