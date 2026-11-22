@@ -15,11 +15,17 @@
     <!-- Top HUD -->
     <header class="hud" aria-label="נתוני שלב">
       <div class="hud-row hud-top">
-        <button id="btn-levels" class="hud-pill hud-btn" type="button" aria-label="בחירת שלב">
-          <span class="pill-label">שלב</span>
-          <strong id="hud-level">1</strong>
-          <span class="pill-sub">/ 100</span>
-        </button>
+        <div class="hud-right-group">
+          <button id="btn-levels" class="hud-pill hud-btn" type="button" aria-label="בחירת שלב">
+            <span class="pill-label">שלב</span>
+            <strong id="hud-level">1</strong>
+            <span class="pill-sub">/ 100</span>
+          </button>
+
+          <button id="btn-diff-hud" class="hud-pill diff-pill" type="button" title="החלף רמת קושי">
+            <span id="hud-diff">🟢 קל</span>
+          </button>
+        </div>
 
         <div class="hud-center-meta">
           <div id="hud-world" class="world-badge">אצטדיון הבית</div>
@@ -27,15 +33,20 @@
         </div>
 
         <div class="hud-actions">
+          <button id="btn-shop-hud" class="shop-pill" type="button" aria-label="חנות שיפורים" title="חנות שיפורים">
+            <span>🪙</span>
+            <strong id="hud-coins">0</strong>
+            <span class="shop-cart-icon">🛒</span>
+          </button>
           <button id="btn-restart" class="icon-btn" type="button" aria-label="התחל שלב מחדש" title="התחל מחדש">↻</button>
           <button id="btn-sound" class="icon-btn" type="button" aria-label="השתק או הפעל קול" title="צלילים">🔊</button>
         </div>
       </div>
 
-      <!-- Boss HP Bar (1 Hit to Win!) -->
+      <!-- Boss HP Bar -->
       <div class="boss-bar-wrap" aria-label="חיים של הבוס">
         <div class="boss-bar-header">
-          <span class="boss-title">👹 הבוס (פגיעה אחת לניצחון!)</span>
+          <span id="boss-title-text" class="boss-title">👹 הבוס</span>
           <span id="boss-hp-text" class="boss-hp-text">1 / 1 ❤️</span>
         </div>
         <div class="boss-hp-track" role="progressbar" aria-valuemin="0" aria-valuemax="1" aria-valuenow="1">
@@ -43,7 +54,7 @@
         </div>
       </div>
 
-      <!-- Active Power-up Status -->
+      <!-- Active Power-up & Shield Status -->
       <div id="powerup-bar" class="powerup-bar" aria-live="polite"></div>
     </header>
 
@@ -56,7 +67,7 @@
 
       <!-- Mobile Controls Overlay -->
       <div class="controls-overlay" aria-hidden="false">
-        <div class="touch-hint" id="touch-hint">גרור עם האצבע לתנועה בזיגזג • החלק למעלה או לחץ לבעיטה</div>
+        <div class="touch-hint" id="touch-hint">גרור עם האצבע לתנועה בזיגזג • אסוף מטבעות 🪙 ובעט בבוס!</div>
         <button id="btn-shoot" class="shoot-btn" type="button" aria-label="בעט בכדור">
           <span class="shoot-icon">⚽</span>
           <span class="shoot-label">בעיטה!</span>
@@ -70,23 +81,39 @@
     <div class="dialog-card">
       <div class="hero-emblem">⚽⛈️👑</div>
       <h1>כדורגל בוס 100</h1>
-      <p class="subtitle">100 שלבים בעיצוב ייחודי, שעות יום ולילה, גשם וברקים!</p>
+      <p class="subtitle">100 שלבים בעיצוב ייחודי, גשם וברקים, מטבעות וחנות שיפורים!</p>
 
-      <ul class="rules-list">
-        <li><span>🚧</span> <strong>קונוסים בזיגזג:</strong> החלק בין הקונוסים בלי לגעת בהם. נגיעה = התחלה מיד מהתחלה!</li>
-        <li><span>👑</span> <strong>הבוסית המלכה:</strong> מחליקה בזיגזג מולך וחוסמת בעיטות. הטעה אותה ובעט דרך הרווחים!</li>
-        <li><span>👹</span> <strong>פגיעה אחת לניצחון:</strong> פגע בבוס פעם אחת בלבד כדי לנצח ולעבור מיד לשלב הבא!</li>
-        <li><span>⛈️</span> <strong>מזג אוויר ויום/לילה:</strong> כל שלב בצבע, דוגמת מגרש ושעה שונים עם גשם וברקים!</li>
-      </ul>
-
-      <div class="controls-mini">
-        <span>📱 מובייל: גרור לתנועה + כפתור בעיטה / החלקה למעלה</span>
-        <span>💻 מחשב: חיצים / WASD + רווח לבעיטה</span>
+      <!-- Difficulty Selector -->
+      <div class="diff-selector-block">
+        <div class="diff-selector-title">בחר רמת קושי:</div>
+        <div class="diff-buttons-row" id="start-diff-buttons">
+          <button type="button" class="diff-choice-btn active" data-diff="easy">
+            <strong>🟢 קל</strong>
+            <span>פגיעה 1 • ×1 🪙</span>
+          </button>
+          <button type="button" class="diff-choice-btn" data-diff="normal">
+            <strong>🟡 רגיל</strong>
+            <span>2 פגיעות • ×1.5 🪙</span>
+          </button>
+          <button type="button" class="diff-choice-btn" data-diff="hard">
+            <strong>🔴 קשה</strong>
+            <span>3 פגיעות • ×2.5 🪙</span>
+          </button>
+        </div>
+        <div id="start-diff-desc" class="diff-desc-line">פגיעה 1 בבוס • מלכה ובוס רגועים • ×1 מטבעות</div>
       </div>
 
-      <div id="saved-status-banner" class="saved-banner">💾 ההתקדמות נשמרת אוטומטית בדפדפן</div>
+      <ul class="rules-list">
+        <li><span>🚧</span> <strong>קונוסים בזיגזג:</strong> החלק בין הקונוסים בלי לגעת בהם (או קנה 🛡️ מגן קונוסים בחנות!).</li>
+        <li><span>🪙</span> <strong>מטבעות וחנות שיפורים:</strong> אסוף מטבעות על הדשא ונצח שלבים כדי לשדרג מהירות, בעיטה, מגנים וכדורי אש!</li>
+      </ul>
 
-      <button id="btn-play" class="primary-btn" type="button">יאללה לשחק! ⚽</button>
+      <div id="saved-status-banner" class="saved-banner">💾 ההתקדמות והמטבעות נשמרים אוטומטית בדפדפן</div>
+
+      <div class="dialog-actions-stack">
+        <button id="btn-play" class="primary-btn" type="button">יאללה לשחק! ⚽</button>
+        <button id="btn-open-shop-start" class="shop-open-btn" type="button">🛒 חנות שיפורים (<span id="start-coins-count">0</span> 🪙)</button>
+      </div>
     </div>
   </dialog>
 
@@ -96,7 +123,7 @@
       <div id="win-icon" class="hero-emblem">🏆</div>
       <h2 id="win-title">ניצחת את השלב!</h2>
       <p id="win-desc" class="subtitle">פגיעה בול בבוס! כל הכבוד!</p>
-      <div class="win-stats">
+      <div class="win-stats win-stats-3">
         <div class="stat-box">
           <span class="stat-label">שלב</span>
           <strong id="win-level">1</strong>
@@ -105,8 +132,28 @@
           <span class="stat-label">זמן</span>
           <strong id="win-time">0.0 שנ׳</strong>
         </div>
+        <div class="stat-box">
+          <span class="stat-label">הרווחת</span>
+          <strong id="win-coins">+20 🪙</strong>
+        </div>
       </div>
-      <button id="btn-next-level" class="primary-btn" type="button">לשלב הבא ⬅️</button>
+      <div class="dialog-actions-stack">
+        <button id="btn-next-level" class="primary-btn" type="button">לשלב הבא ⬅️</button>
+        <button id="btn-open-shop-win" class="shop-open-btn" type="button">🛒 חנות שיפורים (סה״כ: <span id="win-total-coins">0</span> 🪙)</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Upgrade Shop Modal -->
+  <dialog id="modal-shop" class="game-dialog">
+    <div class="dialog-card shop-card">
+      <div class="dialog-header">
+        <h2>🛒 חנות שיפורים</h2>
+        <div class="shop-balance-badge">🪙 <strong id="shop-coins-balance">0</strong></div>
+        <button id="btn-close-shop" class="icon-btn" type="button" aria-label="סגור">✕</button>
+      </div>
+      <p class="shop-hint">אסוף מטבעות על הדשא ונצח שלבים כדי לשדרג את השחקן שלך!</p>
+      <div id="shop-items-list" class="shop-items-list"></div>
     </div>
   </dialog>
 
@@ -114,7 +161,7 @@
   <dialog id="modal-levels" class="game-dialog">
     <div class="dialog-card levels-card">
       <div class="dialog-header">
-        <h2>בחירת שלב (1–100)</h2>
+        <h2>בחירת שלב וקושי (1–100)</h2>
         <button id="btn-close-levels" class="icon-btn" type="button" aria-label="סגור">✕</button>
       </div>
 

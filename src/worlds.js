@@ -1,6 +1,82 @@
-// 100 Levels across 10 Worlds — EVERY single level has its own unique style, color palette, time of day, and rain/lightning weather!
+// 100 Levels across 10 Worlds + Difficulty presets + Upgrade Shop definitions
 
 export const TOTAL_LEVELS = 100;
+
+export const DIFFICULTIES = {
+  easy: {
+    id: 'easy',
+    label: 'קל',
+    emoji: '🟢',
+    bossHits: 1,
+    speedMult: 0.78,
+    coneHitboxMult: 0.65,
+    coinMult: 1,
+    desc: 'פגיעה 1 בבוס • מלכה ובוס רגועים • ×1 מטבעות',
+  },
+  normal: {
+    id: 'normal',
+    label: 'רגיל',
+    emoji: '🟡',
+    bossHits: 2,
+    speedMult: 1.0,
+    coneHitboxMult: 0.72,
+    coinMult: 1.5,
+    desc: '2 פגיעות בבוס • קצב מאוזן • ×1.5 מטבעות',
+  },
+  hard: {
+    id: 'hard',
+    label: 'קשה',
+    emoji: '🔴',
+    bossHits: 3,
+    speedMult: 1.25,
+    coneHitboxMult: 0.78,
+    coinMult: 2.5,
+    desc: '3 פגיעות בבוס • מלכה מהירה ואגרסיבית • ×2.5 מטבעות',
+  },
+};
+
+export const SHOP_UPGRADES = [
+  {
+    id: 'speed',
+    name: 'נעלי ספרינט',
+    emoji: '👟',
+    maxLevel: 5,
+    costs: [25, 55, 95, 145, 210],
+    desc: 'מגדיל את מהירות הכדרור וההחלקה בין הקונוסים (+12% לכל רמה)',
+  },
+  {
+    id: 'shot',
+    name: 'בעיטת תותח',
+    emoji: '⚽',
+    maxLevel: 5,
+    costs: [30, 65, 110, 165, 240],
+    desc: 'כדור מהיר יותר שהבוס מתקשה להתחמק ממנו + טעינת כדור מהירה',
+  },
+  {
+    id: 'shield',
+    name: 'מגן קונוסים',
+    emoji: '🛡️',
+    maxLevel: 5,
+    costs: [40, 85, 140, 210, 300],
+    desc: 'מציל אותך מפסילה כשנתקעים בקונוס או במכשול! (+1 מגן בכל שלב)',
+  },
+  {
+    id: 'magnet',
+    name: 'מגנט מטבעות',
+    emoji: '🧲',
+    maxLevel: 5,
+    costs: [25, 50, 90, 140, 200],
+    desc: 'שואב מטבעות וכוחות מיוחדים מרחוק ומגדיל רווח מטבעות (+20% לרמה)',
+  },
+  {
+    id: 'startFire',
+    name: 'מתנע כדור אש',
+    emoji: '🔥',
+    maxLevel: 5,
+    costs: [50, 100, 165, 240, 340],
+    desc: 'מתחיל כל שלב עם כדורי אש מוכנים שעוברים ישר דרך המלכה!',
+  },
+];
 
 export const WORLDS = [
   { id: 1, name: 'אצטדיון הבית', emoji: '⚽', range: [1, 10], slippery: false },
@@ -94,7 +170,6 @@ export function getWorldForLevel(level) {
   return WORLDS[idx] || WORLDS[0];
 }
 
-// Mulberry32 deterministic PRNG
 function mulberry32(seed) {
   let a = seed >>> 0;
   return function () {
@@ -106,11 +181,7 @@ function mulberry32(seed) {
   };
 }
 
-/**
- * Generates a unique visual style, color palette, pattern, time of day, and weather for EVERY level (1..100).
- */
-function generateLevelVisualStyle(lvl, baseWorld, rand) {
-  // Golden-angle hue stepping ensures consecutive levels always look distinctly colored!
+function generateLevelVisualStyle(lvl, baseWorld) {
   const hue = Math.round((lvl * 137.508 + 110) % 360);
   const coneHue = (hue + 150) % 360;
   const bossHue = (hue + 210) % 360;
@@ -119,7 +190,6 @@ function generateLevelVisualStyle(lvl, baseWorld, rand) {
   const timeOfDay = TIMES_OF_DAY[(lvl - 1) % TIMES_OF_DAY.length];
   const pitchPattern = PITCH_PATTERNS[(lvl - 1) % PITCH_PATTERNS.length];
 
-  // Adjust turf lightness for day vs night while keeping rich saturation
   const sat = baseWorld.id === 2 ? 32 : baseWorld.id === 10 ? 55 : 58;
   const lightA = timeOfDay.isNight ? 21 : 32;
   const lightB = timeOfDay.isNight ? 16 : 26;
@@ -133,9 +203,8 @@ function generateLevelVisualStyle(lvl, baseWorld, rand) {
   const bossColor = `hsl(${bossHue}, 82%, 50%)`;
   const queenColor = `hsl(${queenHue}, 84%, 56%)`;
 
-  // Rain & lightning settings per level (every level has dynamic rain & lightning!)
-  const rainCount = 65 + ((lvl * 19) % 55); // 65..120 raindrops
-  const rainWind = ((lvl % 5) - 2) * 0.07; // slanting angle
+  const rainCount = 65 + ((lvl * 19) % 55);
+  const rainWind = ((lvl % 5) - 2) * 0.07;
   const lightningIntervalMin = timeOfDay.isNight ? 2.4 : 3.2;
   const lightningIntervalMax = timeOfDay.isNight ? 4.8 : 6.2;
 
@@ -160,17 +229,17 @@ function generateLevelVisualStyle(lvl, baseWorld, rand) {
   };
 }
 
-export function generateLevelConfig(level) {
+export function generateLevelConfig(level, difficultyId = 'easy') {
   const lvl = Math.max(1, Math.min(TOTAL_LEVELS, Math.floor(level)));
+  const diff = DIFFICULTIES[difficultyId] || DIFFICULTIES.easy;
   const baseWorld = getWorldForLevel(lvl);
   const rand = mulberry32(lvl * 7919 + 1337);
-  const world = generateLevelVisualStyle(lvl, baseWorld, rand);
+  const world = generateLevelVisualStyle(lvl, baseWorld);
 
-  // Smooth progression curve across 100 levels
-  const p = (lvl - 1) / (TOTAL_LEVELS - 1); // 0..1
-  const easyRamp = Math.min(1, (lvl - 1) / 15); // 0..1 over first 15 levels
+  const p = (lvl - 1) / (TOTAL_LEVELS - 1);
+  const easyRamp = Math.min(1, (lvl - 1) / 15);
 
-  // Zigzag cones for the Queen's sliding corridor (she weaves between them!)
+  // Zigzag cones for the Queen's sliding corridor
   const queenConeCount = lvl < 4 ? 3 : lvl < 20 ? 4 : 5;
   const queenCones = [];
   const qStartX = 0.16;
@@ -183,7 +252,7 @@ export function generateLevelConfig(level) {
     queenCones.push({ x, y, zone: 'queen', r: 0.032 });
   }
 
-  // Zigzag cones for the Player's field (facing the Queen)
+  // Zigzag cones for the Player's field
   const playerConeRows = lvl < 4 ? 3 : lvl < 15 ? 4 : lvl < 45 ? 5 : 6;
   const playerCones = [];
   const startY = 0.48;
@@ -206,33 +275,55 @@ export function generateLevelConfig(level) {
     }
   }
 
-  // Moving side defenders on higher levels (level 11+)
+  // Initial coins placed along the zigzag path so player can collect them while dribbling!
+  const initialCoins = [];
+  const coinCount = 3 + (lvl % 3);
+  for (let i = 0; i < coinCount; i++) {
+    for (let attempt = 0; attempt < 12; attempt++) {
+      const cx = 0.16 + rand() * 0.68;
+      const cy = 0.46 + rand() * 0.36;
+      const tooClose = playerCones.some((c) => Math.hypot(cx - c.x, (cy - c.y) * 1.6) < 0.085);
+      if (!tooClose) {
+        initialCoins.push({ x: cx, y: cy, r: 0.025, bob: rand() * Math.PI * 2 });
+        break;
+      }
+    }
+  }
+
+  // Moving side defenders on higher levels
   const movingDefenders = [];
-  if (lvl >= 11) {
+  const minDefenderLvl = diff.id === 'easy' ? 16 : diff.id === 'normal' ? 11 : 6;
+  if (lvl >= minDefenderLvl) {
     const count = lvl < 35 ? 1 : lvl < 70 ? 2 : 3;
     for (let i = 0; i < count; i++) {
       const y = 0.54 + (i / Math.max(1, count)) * 0.18;
       movingDefenders.push({
         y,
         x: 0.2 + rand() * 0.6,
-        speed: 0.16 + p * 0.24 + i * 0.03,
+        speed: (0.15 + p * 0.22 + i * 0.03) * diff.speedMult,
         dir: rand() > 0.5 ? 1 : -1,
         r: 0.032,
       });
     }
   }
 
+  const minQueenShotLvl = diff.id === 'easy' ? 8 : diff.id === 'normal' ? 4 : 2;
+
   return {
     level: lvl,
+    difficulty: diff,
     world,
-    bossMaxHp: 1, // 1 direct hit on the Boss wins the level!
-    bossSpeed: 0.18 + easyRamp * 0.12 + p * 0.26,
-    bossDodgeReaction: 0.25 + easyRamp * 0.18 + p * 0.30,
-    queenSpeed: 0.20 + easyRamp * 0.14 + p * 0.28,
-    queenShotInterval: lvl < 5 ? 0 : Math.max(1.5, 3.8 - easyRamp * 0.85 - p * 1.35),
-    queenShotSpeed: 0.26 + p * 0.24,
+    bossMaxHp: diff.bossHits,
+    bossSpeed: (0.18 + easyRamp * 0.12 + p * 0.25) * diff.speedMult,
+    bossDodgeReaction: (0.24 + easyRamp * 0.18 + p * 0.28) * diff.speedMult,
+    queenSpeed: (0.20 + easyRamp * 0.14 + p * 0.26) * diff.speedMult,
+    queenShotInterval:
+      lvl < minQueenShotLvl ? 0 : Math.max(1.3, (3.8 - easyRamp * 0.85 - p * 1.35) / diff.speedMult),
+    queenShotSpeed: (0.26 + p * 0.22) * diff.speedMult,
+    coneHitboxMult: diff.coneHitboxMult,
     queenCones,
     playerCones,
+    initialCoins,
     movingDefenders,
     powerupInterval: Math.max(4.2, 6.8 - p * 1.8),
     isFinale: lvl === TOTAL_LEVELS,

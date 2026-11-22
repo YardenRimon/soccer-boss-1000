@@ -64,6 +64,21 @@ class SoundEngine {
     this._tone(520, 260, 0.12, 'triangle', 0.15);
   }
 
+  coin() {
+    this._tone(987.77, 1318.51, 0.08, 'sine', 0.14, 0);
+    this._tone(1318.51, 1567.98, 0.11, 'sine', 0.12, 0.05);
+  }
+
+  buy() {
+    this._tone(523.25, 659.25, 0.08, 'triangle', 0.15, 0);
+    this._tone(659.25, 1046.5, 0.14, 'triangle', 0.16, 0.07);
+  }
+
+  shieldBreak() {
+    this._tone(600, 220, 0.18, 'sawtooth', 0.16, 0);
+    this._tone(350, 480, 0.12, 'sine', 0.14, 0.05);
+  }
+
   fail() {
     this._tone(220, 90, 0.22, 'sawtooth', 0.14);
     this._tone(150, 65, 0.24, 'square', 0.1, 0.08);
@@ -76,7 +91,6 @@ class SoundEngine {
 
   thunder() {
     if (this.muted || !this.ctx || this.ctx.state !== 'running') return;
-    // Low rumbling thunder crack + roll
     this._tone(135, 38, 0.45, 'sawtooth', 0.11, 0);
     this._tone(90, 28, 0.65, 'triangle', 0.14, 0.06);
   }

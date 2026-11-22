@@ -17,8 +17,17 @@ export class SoccerBossGame {
     this.height = 640;
     this.dpr = Math.min(window.devicePixelRatio || 1, 2);
 
+    this.difficultyId = 'easy';
+    this.upgrades = {
+      speed: 0,
+      shot: 0,
+      shield: 0,
+      magnet: 0,
+      startFire: 0,
+    };
+
     this.state = 'paused'; // 'paused' | 'playing' | 'restarting' | 'won'
-    this.config = generateLevelConfig(1);
+    this.config = generateLevelConfig(1, this.difficultyId);
     this.levelTime = 0;
     this.restartTimer = 0;
     this.shakeTime = 0;
@@ -41,6 +50,9 @@ export class SoccerBossGame {
     this.player = null;
     this.boss = null;
     this.queen = null;
+    this.playerCones = [];
+    this.queenCones = [];
+    this.coins = [];
     this.balls = [];
     this.hazards = [];
     this.powerups = [];
@@ -57,10 +69,14 @@ export class SoccerBossGame {
 
     this.queenShotTimer = 1.6;
     this.powerupTimer = 4.0;
+    this.coinSpawnTimer = 3.2;
     this.ballCooldown = 0;
     this.queenFreezeTimer = 0;
     this.turboTimer = 0;
     this.fireShotsLeft = 0;
+    this.shieldsLeft = 0;
+    this.invulnTimer = 0;
+    this.levelCoinsEarned = 0;
 
     this._lastFrame = 0;
     this._rafId = null;
@@ -68,6 +84,20 @@ export class SoccerBossGame {
     this._bindEvents();
     this.resize();
     this.loadLevel(1, false);
+  }
+
+  setDifficulty(difficultyId) {
+    this.difficultyId = difficultyId;
+  }
+
+  setUpgrades(upgrades) {
+    this.upgrades = {
+      speed: Number(upgrades?.speed) || 0,
+      shot: Number(upgrades?.shot) || 0,
+      shield: Number(upgrades?.shield) || 0,
+      magnet: Number(upgrades?.magnet) || 0,
+      startFire: Number(upgrades?.startFire) || 0,
+    };
   }
 
   startLoop() {
@@ -95,10 +125,11 @@ export class SoccerBossGame {
   }
 
   loadLevel(levelNum, startPlaying = true) {
-    this.config = generateLevelConfig(levelNum);
+    this.config = generateLevelConfig(levelNum, this.difficultyId);
     this.levelTime = 0;
     this.restartTimer = 0;
     this.shakeTime = 0;
+    this.levelCoinsEarned = 0;
 
     this.player = {
       x: 0.5,
@@ -131,6 +162,9 @@ export class SoccerBossGame {
       slidePhase: 0,
     };
 
+    this.playerCones = this.config.playerCones.map((c) => ({ ...c }));
+    this.queenCones = this.config.queenCones.map((c) => ({ ...c }));
+    this.coins = this.config.initialCoins.map((c) => ({ ...c }));
     this.defenders = this.config.movingDefenders.map((d) => ({ ...d }));
     this.balls = [];
     this.hazards = [];
@@ -143,10 +177,15 @@ export class SoccerBossGame {
 
     this.queenShotTimer = this.config.queenShotInterval > 0 ? Math.min(1.6, this.config.queenShotInterval) : 999;
     this.powerupTimer = 3.5;
+    this.coinSpawnTimer = 3.8;
     this.ballCooldown = 0;
     this.queenFreezeTimer = 0;
     this.turboTimer = 0;
-    this.fireShotsLeft = 0;
+    this.invulnTimer = 0;
+
+    // Apply starting upgrades!
+    this.fireShotsLeft = this.upgrades.startFire || 0;
+    this.shieldsLeft = this.upgrades.shield || 0;
 
     this.state = startPlaying ? 'playing' : 'paused';
     this._syncHud();
@@ -176,7 +215,6 @@ export class SoccerBossGame {
     this.shakeMag = Math.max(this.shakeMag, 4);
     sound.thunder();
 
-    // Generate main jagged lightning bolt + optional branch
     const startX = 0.15 + Math.random() * 0.7;
     const segments = [];
     const branches = [];
@@ -224,25 +262,47 @@ export class SoccerBossGame {
     const isFire = this.fireShotsLeft > 0;
     if (isFire) this.fireShotsLeft -= 1;
 
+    const shotLevel = this.upgrades.shot || 0;
+    const shotSpeedMult = 1 + shotLevel * 0.14;
     const aimX = Math.max(-0.22, Math.min(0.22, this.player.vx * 0.32));
-    const speed = isFire ? 1.35 : 0.98;
+    const speed = (isFire ? 1.35 : 0.98) * shotSpeedMult;
 
     this.balls.push({
       x: this.player.x,
       y: this.player.y - this.player.r * 1.15,
       vx: aimX,
       vy: -speed,
-      r: isFire ? 0.028 : 0.023,
+      r: isFire ? 0.028 : 0.024,
       fire: isFire,
       damage: isFire ? 2 : 1,
       spin: 0,
     });
 
     this.player.hasBall = false;
-    this.ballCooldown = this.turboTimer > 0 ? 0.16 : 0.34;
+    const baseCooldown = this.turboTimer > 0 ? 0.14 : 0.32;
+    this.ballCooldown = Math.max(0.11, baseCooldown * (1 - shotLevel * 0.09));
     sound.kick(isFire);
     this._spawnParticles(this.player.x, this.player.y - 0.02, isFire ? '#f97316' : '#ffffff', 7);
     this._syncHud();
+  }
+
+  _consumeShieldOrFail(reason, onShieldSaved) {
+    if (this.invulnTimer > 0) return false;
+    if (this.shieldsLeft > 0) {
+      this.shieldsLeft -= 1;
+      this.invulnTimer = 0.75;
+      this.shakeTime = 0.14;
+      this.shakeMag = 5;
+      sound.shieldBreak();
+      this._spawnParticles(this.player.x, this.player.y, '#38bdf8', 16);
+      this._addFloatingText(this.player.x, this.player.y - 0.04, '🛡️ המגן הציל אותך!', '#38bdf8');
+      this.callbacks.onToast?.(`🛡️ מגן קונוסים הציל אותך! (נותרו ${this.shieldsLeft})`, true);
+      onShieldSaved?.();
+      this._syncHud();
+      return true;
+    }
+    this._triggerFail(reason);
+    return false;
   }
 
   _triggerFail(reason) {
@@ -256,15 +316,30 @@ export class SoccerBossGame {
     this.callbacks.onToast?.(reason, false);
   }
 
+  _calcCoinAmount(baseAmount) {
+    const diffMult = this.config.difficulty.coinMult;
+    const magnetMult = 1 + (this.upgrades.magnet || 0) * 0.2;
+    return Math.max(1, Math.round(baseAmount * diffMult * magnetMult));
+  }
+
   _triggerWin() {
     this.state = 'won';
     sound.win();
     this.shakeTime = 0.3;
     this.shakeMag = 6;
     this._spawnConfetti();
+
+    // Calculate level clear coin reward
+    const baseClear = 15 + Math.min(35, this.config.level * 2);
+    const speedBonus = this.levelTime < 12 ? 10 : 0;
+    const clearReward = this._calcCoinAmount(baseClear + speedBonus);
+    this.levelCoinsEarned += clearReward;
+    this.callbacks.onCoinsEarned?.(clearReward, 'win');
+
     this.callbacks.onWin?.({
       level: this.config.level,
       time: this.levelTime,
+      coinsEarned: this.levelCoinsEarned,
       isFinale: this.config.isFinale,
     });
   }
@@ -280,16 +355,16 @@ export class SoccerBossGame {
       bossHp: this.boss.hp,
       bossMaxHp: this.boss.maxHp,
       fireShots: this.fireShotsLeft,
+      shieldsLeft: this.shieldsLeft,
       freezeTime: this.queenFreezeTimer,
       turboTime: this.turboTimer,
+      difficulty: this.config.difficulty,
     });
   }
 
   update(dt) {
-    // Always animate rain and lightning even while modal/win is open for atmospheric immersion
     this._updateWeather(dt);
 
-    // Update confetti even on win screen
     if (this.confetti.length > 0) {
       for (const c of this.confetti) {
         c.x += c.vx * dt;
@@ -318,7 +393,10 @@ export class SoccerBossGame {
 
     this.levelTime += dt;
 
-    // Power-up timers
+    if (this.invulnTimer > 0) {
+      this.invulnTimer = Math.max(0, this.invulnTimer - dt);
+    }
+
     let hudDirty = false;
     if (this.queenFreezeTimer > 0) {
       this.queenFreezeTimer = Math.max(0, this.queenFreezeTimer - dt);
@@ -329,7 +407,6 @@ export class SoccerBossGame {
       hudDirty = true;
     }
 
-    // Ball respawn at player's feet
     if (!this.player.hasBall) {
       this.ballCooldown -= dt;
       if (this.ballCooldown <= 0) {
@@ -344,6 +421,7 @@ export class SoccerBossGame {
     this._updateBalls(dt);
     this._updateHazards(dt);
     this._updatePowerups(dt);
+    this._updateCoins(dt);
 
     if (hudDirty) this._syncHud();
   }
@@ -401,7 +479,8 @@ export class SoccerBossGame {
   }
 
   _updatePlayer(dt) {
-    const baseSpeed = this.turboTimer > 0 ? 0.66 : 0.46;
+    const speedUpgradeMult = 1 + (this.upgrades.speed || 0) * 0.12;
+    const baseSpeed = (this.turboTimer > 0 ? 0.66 : 0.46) * speedUpgradeMult;
     let ix = 0;
     let iy = 0;
 
@@ -436,20 +515,39 @@ export class SoccerBossGame {
     const speedMag = Math.hypot(this.player.vx, this.player.vy);
     this.player.ballSpin += speedMag * dt * 20;
 
-    // Collision with Player Zigzag Cones & Queen Cones => Instant Restart!
-    const allCones = [...this.config.playerCones, ...this.config.queenCones];
-    for (const cone of allCones) {
+    // Collision with Player Zigzag Cones
+    const hitboxMult = this.config.coneHitboxMult;
+    for (let i = this.playerCones.length - 1; i >= 0; i--) {
+      const cone = this.playerCones[i];
       const dist = this._distAspect(this.player.x, this.player.y, cone.x, cone.y);
-      if (dist < (this.player.r + cone.r) * 0.70) {
-        this._triggerFail('נתקעת בקונוס! מתחילים מחדש 🚧');
+      if (dist < (this.player.r + cone.r) * hitboxMult) {
+        this._consumeShieldOrFail('נתקעת בקונוס! מתחילים מחדש 🚧', () => {
+          this._spawnParticles(cone.x, cone.y, '#f97316', 14);
+          this.playerCones.splice(i, 1);
+        });
         return;
       }
     }
 
-    // Collision with Queen => Instant Restart!
+    // Collision with Queen Cones
+    for (let i = this.queenCones.length - 1; i >= 0; i--) {
+      const cone = this.queenCones[i];
+      const dist = this._distAspect(this.player.x, this.player.y, cone.x, cone.y);
+      if (dist < (this.player.r + cone.r) * hitboxMult) {
+        this._consumeShieldOrFail('נתקעת בקונוס! מתחילים מחדש 🚧', () => {
+          this._spawnParticles(cone.x, cone.y, '#f97316', 14);
+          this.queenCones.splice(i, 1);
+        });
+        return;
+      }
+    }
+
+    // Collision with Queen
     const distQueen = this._distAspect(this.player.x, this.player.y, this.queen.x, this.queen.y);
-    if (distQueen < (this.player.r + this.queen.r) * 0.85) {
-      this._triggerFail('המלכה חטפה לך את הכדור! 👑');
+    if (distQueen < (this.player.r + this.queen.r) * 0.82) {
+      this._consumeShieldOrFail('המלכה חטפה לך את הכדור! 👑', () => {
+        this.player.y = Math.min(0.92, this.player.y + 0.08);
+      });
       return;
     }
   }
@@ -482,7 +580,7 @@ export class SoccerBossGame {
     let targetY = 0.31;
     let nearestCone = null;
     let nearestDistX = 999;
-    for (const cone of this.config.queenCones) {
+    for (const cone of this.queenCones) {
       const adx = Math.abs(this.queen.x - cone.x);
       if (adx < nearestDistX) {
         nearestDistX = adx;
@@ -555,7 +653,8 @@ export class SoccerBossGame {
   }
 
   _updateDefenders(dt) {
-    for (const d of this.defenders) {
+    for (let i = this.defenders.length - 1; i >= 0; i--) {
+      const d = this.defenders[i];
       d.x += d.dir * d.speed * dt;
       if (d.x < 0.1) {
         d.x = 0.1;
@@ -566,8 +665,11 @@ export class SoccerBossGame {
       }
 
       const dist = this._distAspect(this.player.x, this.player.y, d.x, d.y);
-      if (dist < (this.player.r + d.r) * 0.82) {
-        this._triggerFail('נתקעת בשומר! מתחילים מחדש 🛡️');
+      if (dist < (this.player.r + d.r) * 0.78) {
+        this._consumeShieldOrFail('נתקעת בשומר! מתחילים מחדש 🛡️', () => {
+          this._spawnParticles(d.x, d.y, '#f87171', 14);
+          this.defenders.splice(i, 1);
+        });
         return;
       }
     }
@@ -612,16 +714,22 @@ export class SoccerBossGame {
       if (b.vy < 0) {
         const db = this._distAspect(b.x, b.y, this.boss.x, this.boss.y);
         if (db < b.r + this.boss.r * 1.12) {
-          this.boss.hp = Math.max(0, this.boss.hp - 1);
+          const dmg = Math.min(this.boss.hp, b.damage);
+          this.boss.hp = Math.max(0, this.boss.hp - dmg);
           this.boss.hitFlash = 0.22;
           this.shakeTime = 0.16;
           this.shakeMag = b.fire ? 9 : 6;
           sound.bossHit(b.fire);
           this._spawnParticles(b.x, b.y, b.fire ? '#f97316' : '#facc15', 22);
+
+          const hitCoins = this._calcCoinAmount(5);
+          this.levelCoinsEarned += hitCoins;
+          this.callbacks.onCoinsEarned?.(hitCoins, 'hit');
+
           this._addFloatingText(
             this.boss.x,
             this.boss.y + 0.04,
-            'בום! ניצחון! ⚽🏆',
+            this.boss.hp <= 0 ? `ניצחון! +${hitCoins}🪙` : `-${dmg} ❤️ (+${hitCoins}🪙)`,
             '#fde047'
           );
           this.balls.splice(i, 1);
@@ -649,8 +757,10 @@ export class SoccerBossGame {
       }
 
       const dp = this._distAspect(h.x, h.y, this.player.x, this.player.y);
-      if (dp < (h.r + this.player.r) * 0.8) {
-        this._triggerFail('נפגעת ממכשול של המלכה! 💥');
+      if (dp < (h.r + this.player.r) * 0.78) {
+        this._consumeShieldOrFail('נפגעת ממכשול של המלכה! 💥', () => {
+          this.hazards.splice(i, 1);
+        });
         return;
       }
     }
@@ -664,13 +774,16 @@ export class SoccerBossGame {
       for (let attempt = 0; attempt < 10; attempt++) {
         const px = 0.16 + Math.random() * 0.68;
         const py = 0.50 + Math.random() * 0.34;
-        const tooClose = this.config.playerCones.some((c) => this._distAspect(px, py, c.x, c.y) < 0.09);
+        const tooClose = this.playerCones.some((c) => this._distAspect(px, py, c.x, c.y) < 0.09);
         if (!tooClose) {
           this.powerups.push({ x: px, y: py, r: 0.032, type, life: 9.0, bob: Math.random() * Math.PI * 2 });
           break;
         }
       }
     }
+
+    const magnetLvl = this.upgrades.magnet || 0;
+    const pullRadius = 0.07 + magnetLvl * 0.045;
 
     for (let i = this.powerups.length - 1; i >= 0; i--) {
       const p = this.powerups[i];
@@ -682,6 +795,11 @@ export class SoccerBossGame {
       }
 
       const dp = this._distAspect(p.x, p.y, this.player.x, this.player.y);
+      if (magnetLvl > 0 && dp < pullRadius) {
+        p.x += (this.player.x - p.x) * Math.min(1, (4 + magnetLvl * 1.5) * dt);
+        p.y += (this.player.y - p.y) * Math.min(1, (4 + magnetLvl * 1.5) * dt);
+      }
+
       if (dp < p.r + this.player.r) {
         sound.powerup();
         if (p.type.id === 'fire') {
@@ -696,6 +814,47 @@ export class SoccerBossGame {
         this.callbacks.onToast?.(`${p.type.emoji} ${p.type.label}!`, true);
         this.powerups.splice(i, 1);
         this._syncHud();
+      }
+    }
+  }
+
+  _updateCoins(dt) {
+    this.coinSpawnTimer -= dt;
+    if (this.coinSpawnTimer <= 0 && this.coins.length < 5) {
+      this.coinSpawnTimer = 3.6;
+      for (let attempt = 0; attempt < 10; attempt++) {
+        const cx = 0.15 + Math.random() * 0.7;
+        const cy = 0.45 + Math.random() * 0.38;
+        const tooClose = this.playerCones.some((c) => this._distAspect(cx, cy, c.x, c.y) < 0.085);
+        if (!tooClose) {
+          this.coins.push({ x: cx, y: cy, r: 0.025, bob: Math.random() * Math.PI * 2 });
+          break;
+        }
+      }
+    }
+
+    const magnetLvl = this.upgrades.magnet || 0;
+    const pullRadius = 0.08 + magnetLvl * 0.055;
+
+    for (let i = this.coins.length - 1; i >= 0; i--) {
+      const c = this.coins[i];
+      c.bob += dt * 6;
+      const dist = this._distAspect(c.x, c.y, this.player.x, this.player.y);
+
+      if (dist < pullRadius) {
+        const pullSpeed = 5 + magnetLvl * 2.2;
+        c.x += (this.player.x - c.x) * Math.min(1, pullSpeed * dt);
+        c.y += (this.player.y - c.y) * Math.min(1, pullSpeed * dt);
+      }
+
+      if (dist < c.r + this.player.r * 1.05) {
+        const amount = this._calcCoinAmount(5);
+        this.levelCoinsEarned += amount;
+        sound.coin();
+        this._spawnParticles(c.x, c.y, '#facc15', 10);
+        this._addFloatingText(c.x, c.y - 0.02, `+${amount} 🪙`, '#fde047');
+        this.callbacks.onCoinsEarned?.(amount, 'pickup');
+        this.coins.splice(i, 1);
       }
     }
   }
@@ -810,8 +969,8 @@ export class SoccerBossGame {
     ctx.restore();
 
     // 4. Zigzag Slalom Guide Lines
-    this._drawZigzagGuide(this.config.queenCones, 'rgba(232, 121, 249, 0.24)');
-    this._drawZigzagGuide(this.config.playerCones, 'rgba(255, 255, 255, 0.16)');
+    this._drawZigzagGuide(this.queenCones, 'rgba(232, 121, 249, 0.24)');
+    this._drawZigzagGuide(this.playerCones, 'rgba(255, 255, 255, 0.16)');
 
     // 5. Aim Line from Player
     if (this.player.hasBall && this.state === 'playing') {
@@ -828,7 +987,12 @@ export class SoccerBossGame {
       ctx.restore();
     }
 
-    // 6. Power-ups
+    // 6. Collectible Golden Coins on Field
+    for (const c of this.coins) {
+      this._drawCoin(c.x * W, c.y * H, c.r * W, c.bob);
+    }
+
+    // 7. Power-ups
     for (const p of this.powerups) {
       const x = p.x * W;
       const y = p.y * H + Math.sin(p.bob) * 4;
@@ -854,42 +1018,42 @@ export class SoccerBossGame {
       ctx.restore();
     }
 
-    // 7. Zigzag Cones
-    for (const cone of [...this.config.queenCones, ...this.config.playerCones]) {
+    // 8. Zigzag Cones
+    for (const cone of [...this.queenCones, ...this.playerCones]) {
       this._drawCone(cone.x * W, cone.y * H, cone.r * W, world.coneColor, tod.shadowScale);
     }
 
-    // 8. Moving Defenders
+    // 9. Moving Defenders
     for (const d of this.defenders) {
       this._drawDefender(d.x * W, d.y * H, d.r * W);
     }
 
-    // 9. Boss
+    // 10. Boss
     this._drawBoss(this.boss.x * W, this.boss.y * H, this.boss.r * W, world.bossColor, tod.shadowScale);
 
-    // 10. Boss Queen
+    // 11. Boss Queen
     this._drawQueen(this.queen.x * W, this.queen.y * H, this.queen.r * W, world.queenColor, tod.shadowScale);
 
-    // 11. Player + Dribble Ball
+    // 12. Player + Dribble Ball + Shield Ring
     this._drawPlayer(this.player.x * W, this.player.y * H, this.player.r * W, tod.shadowScale);
 
-    // 12. Active Soccer Balls
+    // 13. Active Soccer Balls
     for (const b of this.balls) {
       this._drawSoccerBall(b.x * W, b.y * H, b.r * W, b.spin, b.fire);
     }
 
-    // 13. Queen's Thrown Hazards
+    // 14. Queen's Thrown Hazards
     for (const h of this.hazards) {
       this._drawHazard(h.x * W, h.y * H, h.r * W, h.rot);
     }
 
-    // 14. Day / Night Atmospheric Lighting + Stadium Spotlights
+    // 15. Day / Night Atmospheric Lighting + Stadium Spotlights
     this._drawTimeOfDayLighting(W, H, tod);
 
-    // 15. Falling Rain Streaks & Jagged Lightning Bolts
+    // 16. Falling Rain Streaks & Jagged Lightning Bolts
     this._drawRainAndLightning(W, H, world);
 
-    // 16. Particles
+    // 17. Particles
     for (const p of this.particles) {
       ctx.save();
       ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
@@ -900,7 +1064,7 @@ export class SoccerBossGame {
       ctx.restore();
     }
 
-    // 17. Floating Texts
+    // 18. Floating Texts
     for (const t of this.floatingTexts) {
       ctx.save();
       ctx.globalAlpha = Math.max(0, t.life / t.maxLife);
@@ -914,13 +1078,13 @@ export class SoccerBossGame {
       ctx.restore();
     }
 
-    // 18. Restart Red Vignette Flash
+    // 19. Restart Red Vignette Flash
     if (this.state === 'restarting') {
       ctx.fillStyle = `rgba(239, 68, 68, ${Math.min(0.42, this.restartTimer)})`;
       ctx.fillRect(0, 0, W, H);
     }
 
-    // 19. Confetti
+    // 20. Confetti
     for (const c of this.confetti) {
       ctx.save();
       ctx.translate(c.x * W, c.y * H);
@@ -929,6 +1093,47 @@ export class SoccerBossGame {
       ctx.fillRect(-c.size / 2, -c.size / 2, c.size, c.size * 0.6);
       ctx.restore();
     }
+
+    ctx.restore();
+  }
+
+  _drawCoin(x, y, r, bob) {
+    const ctx = this.ctx;
+    const cy = y + Math.sin(bob) * 3;
+    const scaleX = 0.65 + Math.abs(Math.cos(bob * 0.7)) * 0.35;
+
+    ctx.save();
+    // Shadow
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.32)';
+    ctx.beginPath();
+    ctx.ellipse(x, y + r * 0.9, r * 0.85, r * 0.35, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.translate(x, cy);
+    ctx.scale(scaleX, 1);
+
+    // Outer gold disc
+    ctx.fillStyle = '#facc15';
+    ctx.strokeStyle = '#ca8a04';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Inner bright rim
+    ctx.strokeStyle = '#fef08a';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.68, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Star/shine in center
+    ctx.fillStyle = '#a16207';
+    ctx.font = `800 ${Math.round(r * 0.95)}px system-ui, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('★', 0, 0.5);
 
     ctx.restore();
   }
@@ -996,12 +1201,10 @@ export class SoccerBossGame {
     const ctx = this.ctx;
     ctx.save();
 
-    // Ambient tint overlay
     ctx.fillStyle = tod.ambientOverlay;
     ctx.fillRect(0, 0, W, H);
 
     if (tod.sunbeams) {
-      // Warm diagonal sunbeams for dawn/morning/noon
       const grad = ctx.createLinearGradient(0, 0, W, H * 0.7);
       grad.addColorStop(0, 'rgba(255, 250, 200, 0.14)');
       grad.addColorStop(0.5, 'rgba(255, 250, 200, 0.04)');
@@ -1011,7 +1214,6 @@ export class SoccerBossGame {
     }
 
     if (tod.isNight) {
-      // Stadium floodlight pools illuminating the Player, Queen, and Boss
       ctx.globalCompositeOperation = 'screen';
       const spots = [
         { x: this.player.x * W, y: this.player.y * H, r: W * 0.26, color: 'rgba(186, 230, 253, 0.24)' },
@@ -1036,7 +1238,6 @@ export class SoccerBossGame {
     const ctx = this.ctx;
     const wind = world.weather.rainWind;
 
-    // 1. Rain streaks
     ctx.save();
     ctx.strokeStyle = 'rgba(215, 238, 255, 0.62)';
     ctx.lineWidth = 1.35;
@@ -1054,7 +1255,6 @@ export class SoccerBossGame {
     }
     ctx.restore();
 
-    // 2. Jagged Lightning Bolts
     for (const bolt of this.lightningBolts) {
       const alpha = Math.max(0, bolt.life / bolt.maxLife);
       ctx.save();
@@ -1062,7 +1262,6 @@ export class SoccerBossGame {
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
 
-      // Outer cyan-blue electric glow
       ctx.strokeStyle = 'rgba(56, 189, 248, 0.85)';
       ctx.lineWidth = 7;
       ctx.beginPath();
@@ -1072,7 +1271,6 @@ export class SoccerBossGame {
       }
       ctx.stroke();
 
-      // Core bright white bolt
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 2.6;
       ctx.beginPath();
@@ -1086,7 +1284,6 @@ export class SoccerBossGame {
       }
       ctx.stroke();
 
-      // Impact flash circle on pitch
       const gx = bolt.hitX * W;
       const gy = bolt.hitY * H;
       const g = ctx.createRadialGradient(gx, gy, 2, gx, gy, W * 0.16);
@@ -1101,7 +1298,6 @@ export class SoccerBossGame {
       ctx.restore();
     }
 
-    // 3. Full-screen sky lightning flash
     if (this.lightningFlash > 0) {
       ctx.save();
       ctx.fillStyle = `rgba(224, 242, 254, ${Math.min(0.42, this.lightningFlash * 1.15)})`;
@@ -1307,6 +1503,20 @@ export class SoccerBossGame {
       ctx.fill();
     }
 
+    // Protective Cone Shield aura!
+    if (this.shieldsLeft > 0 || this.invulnTimer > 0) {
+      ctx.save();
+      ctx.strokeStyle = this.invulnTimer > 0 ? '#fde047' : '#38bdf8';
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.16)';
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([5, 4]);
+      ctx.beginPath();
+      ctx.arc(x, y, r * 1.38, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
+
     ctx.fillStyle = 'rgba(0,0,0,0.34)';
     ctx.beginPath();
     ctx.ellipse(x, y + r * 0.85, r * 0.9 * shadowScale, r * 0.35, 0, 0, Math.PI * 2);
@@ -1443,7 +1653,8 @@ export class SoccerBossGame {
       const dy = y - this.pointer.lastY;
       this.pointer.movedDist += Math.hypot(dx, dy);
 
-      const dragGain = this.turboTimer > 0 ? 1.38 : 1.18;
+      const speedMult = 1 + (this.upgrades.speed || 0) * 0.08;
+      const dragGain = (this.turboTimer > 0 ? 1.38 : 1.18) * speedMult;
       this.player.x += dx * dragGain;
       this.player.y += dy * dragGain;
       this.player.vx = dx * 24;
