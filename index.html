@@ -32,17 +32,14 @@
         </div>
       </div>
 
-      <!-- Boss HP Bar (5 Hits) -->
+      <!-- Boss HP Bar (1 Hit to Win!) -->
       <div class="boss-bar-wrap" aria-label="חיים של הבוס">
         <div class="boss-bar-header">
-          <span class="boss-title">👹 הבוס</span>
-          <span id="boss-hp-text" class="boss-hp-text">5 / 5 ❤️</span>
+          <span class="boss-title">👹 הבוס (פגיעה אחת לניצחון!)</span>
+          <span id="boss-hp-text" class="boss-hp-text">1 / 1 ❤️</span>
         </div>
-        <div class="boss-hp-track" role="progressbar" aria-valuemin="0" aria-valuemax="5" aria-valuenow="5">
+        <div class="boss-hp-track" role="progressbar" aria-valuemin="0" aria-valuemax="1" aria-valuenow="1">
           <div id="boss-hp-fill" class="boss-hp-fill"></div>
-          <div class="boss-hp-segments" aria-hidden="true">
-            <span></span><span></span><span></span><span></span><span></span>
-          </div>
         </div>
       </div>
 
@@ -78,7 +75,7 @@
       <ul class="rules-list">
         <li><span>🚧</span> <strong>קונוסים בזיגזג:</strong> החלק בין הקונוסים בלי לגעת בהם. נגיעה = התחלה מיד מהתחלה!</li>
         <li><span>👑</span> <strong>הבוסית המלכה:</strong> מחליקה בזיגזג מולך וחוסמת בעיטות. הטעה אותה ובעט דרך הרווחים!</li>
-        <li><span>👹</span> <strong>5 פגיעות בבוס:</strong> פגע בבוס 5 פעמים כדי לנצח ולעבור לשלב הבא.</li>
+        <li><span>👹</span> <strong>פגיעה אחת לניצחון:</strong> פגע בבוס פעם אחת בלבד כדי לנצח ולעבור מיד לשלב הבא!</li>
         <li><span>⛈️</span> <strong>מזג אוויר ויום/לילה:</strong> כל שלב בצבע, דוגמת מגרש ושעה שונים עם גשם וברקים!</li>
       </ul>
 
@@ -86,6 +83,8 @@
         <span>📱 מובייל: גרור לתנועה + כפתור בעיטה / החלקה למעלה</span>
         <span>💻 מחשב: חיצים / WASD + רווח לבעיטה</span>
       </div>
+
+      <div id="saved-status-banner" class="saved-banner">💾 ההתקדמות נשמרת אוטומטית בדפדפן</div>
 
       <button id="btn-play" class="primary-btn" type="button">יאללה לשחק! ⚽</button>
     </div>
@@ -96,7 +95,7 @@
     <div class="dialog-card win-card">
       <div id="win-icon" class="hero-emblem">🏆</div>
       <h2 id="win-title">ניצחת את השלב!</h2>
-      <p id="win-desc" class="subtitle">הבוס הובס ב-5 פגיעות!</p>
+      <p id="win-desc" class="subtitle">פגיעה בול בבוס! כל הכבוד!</p>
       <div class="win-stats">
         <div class="stat-box">
           <span class="stat-label">שלב</span>

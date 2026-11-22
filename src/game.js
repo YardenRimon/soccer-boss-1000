@@ -2,7 +2,7 @@ import { sound } from './audio.js';
 import { generateLevelConfig } from './worlds.js';
 
 const POWERUP_TYPES = [
-  { id: 'fire', emoji: '🔥', label: 'כדור אש (2x נזק)', color: '#f97316' },
+  { id: 'fire', emoji: '🔥', label: 'כדור אש (עוקף מלכה!)', color: '#f97316' },
   { id: 'freeze', emoji: '❄️', label: 'מלכה קפואה', color: '#38bdf8' },
   { id: 'turbo', emoji: '⚡', label: 'טורבו + ירי מהיר', color: '#facc15' },
 ];
@@ -440,7 +440,7 @@ export class SoccerBossGame {
     const allCones = [...this.config.playerCones, ...this.config.queenCones];
     for (const cone of allCones) {
       const dist = this._distAspect(this.player.x, this.player.y, cone.x, cone.y);
-      if (dist < (this.player.r + cone.r) * 0.78) {
+      if (dist < (this.player.r + cone.r) * 0.70) {
         this._triggerFail('נתקעת בקונוס! מתחילים מחדש 🚧');
         return;
       }
@@ -597,9 +597,9 @@ export class SoccerBossGame {
         continue;
       }
 
-      if (b.vy < 0 && this.queenFreezeTimer <= 0) {
+      if (b.vy < 0 && this.queenFreezeTimer <= 0 && !b.fire) {
         const dq = this._distAspect(b.x, b.y, this.queen.x, this.queen.y);
-        if (dq < b.r + this.queen.r * 0.95) {
+        if (dq < b.r + this.queen.r * 0.90) {
           this.queen.blockFlash = 0.2;
           sound.queenBlock();
           this._spawnParticles(b.x, b.y, '#e879f9', 10);
@@ -611,18 +611,18 @@ export class SoccerBossGame {
 
       if (b.vy < 0) {
         const db = this._distAspect(b.x, b.y, this.boss.x, this.boss.y);
-        if (db < b.r + this.boss.r * 1.05) {
-          this.boss.hp = Math.max(0, this.boss.hp - b.damage);
+        if (db < b.r + this.boss.r * 1.12) {
+          this.boss.hp = Math.max(0, this.boss.hp - 1);
           this.boss.hitFlash = 0.22;
           this.shakeTime = 0.16;
-          this.shakeMag = b.fire ? 9 : 5;
+          this.shakeMag = b.fire ? 9 : 6;
           sound.bossHit(b.fire);
-          this._spawnParticles(b.x, b.y, b.fire ? '#f97316' : '#facc15', b.fire ? 22 : 14);
+          this._spawnParticles(b.x, b.y, b.fire ? '#f97316' : '#facc15', 22);
           this._addFloatingText(
             this.boss.x,
             this.boss.y + 0.04,
-            b.fire ? `-${b.damage} 🔥` : '-1 ⚽',
-            b.fire ? '#fb923c' : '#fde047'
+            'בום! ניצחון! ⚽🏆',
+            '#fde047'
           );
           this.balls.splice(i, 1);
           this._syncHud();

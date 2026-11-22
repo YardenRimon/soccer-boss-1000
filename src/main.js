@@ -3,20 +3,26 @@ import { SoccerBossGame } from './game.js';
 import { TOTAL_LEVELS, WORLDS } from './worlds.js';
 
 const STORAGE_KEY = 'soccer_boss_100_save_v1';
+const LEGACY_KEY = 'soccer_boss_1000_save_v1';
 
 function loadProgress() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { currentLevel: 1, maxUnlocked: 1, unlockAll: false, muted: false };
+    const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_KEY);
+    if (!raw) {
+      return { currentLevel: 1, maxUnlocked: 1, unlockAll: false, muted: false, bestTimes: {} };
+    }
     const parsed = JSON.parse(raw);
+    const maxUnlocked = Math.max(1, Math.min(TOTAL_LEVELS, Number(parsed.maxUnlocked) || 1));
+    const currentLevel = Math.max(1, Math.min(TOTAL_LEVELS, Number(parsed.currentLevel) || maxUnlocked));
     return {
-      currentLevel: Math.max(1, Math.min(TOTAL_LEVELS, Number(parsed.currentLevel) || 1)),
-      maxUnlocked: Math.max(1, Math.min(TOTAL_LEVELS, Number(parsed.maxUnlocked) || 1)),
+      currentLevel,
+      maxUnlocked: Math.max(maxUnlocked, currentLevel),
       unlockAll: Boolean(parsed.unlockAll),
       muted: Boolean(parsed.muted),
+      bestTimes: parsed.bestTimes && typeof parsed.bestTimes === 'object' ? parsed.bestTimes : {},
     };
   } catch {
-    return { currentLevel: 1, maxUnlocked: 1, unlockAll: false, muted: false };
+    return { currentLevel: 1, maxUnlocked: 1, unlockAll: false, muted: false, bestTimes: {} };
   }
 }
 
@@ -29,6 +35,7 @@ function saveProgress(data) {
 }
 
 const progress = loadProgress();
+saveProgress(progress);
 sound.setMuted(progress.muted);
 
 // DOM references
@@ -42,6 +49,7 @@ const bossHpFill = document.getElementById('boss-hp-fill');
 const powerupBar = document.getElementById('powerup-bar');
 const toastEl = document.getElementById('toast');
 const touchHint = document.getElementById('touch-hint');
+const savedStatusBanner = document.getElementById('saved-status-banner');
 
 const btnLevels = document.getElementById('btn-levels');
 const btnRestart = document.getElementById('btn-restart');
@@ -68,6 +76,22 @@ const worldsList = document.getElementById('worlds-list');
 
 btnSound.textContent = progress.muted ? '🔇' : '🔊';
 chkUnlockAll.checked = progress.unlockAll;
+
+function updateStartModalSavedText() {
+  if (progress.currentLevel > 1 || progress.maxUnlocked > 1) {
+    btnPlay.textContent = `המשך משלב ${progress.currentLevel} ⚽`;
+    if (savedStatusBanner) {
+      savedStatusBanner.textContent = `💾 שמור בדפדפן: שלב נוכחי ${progress.currentLevel} • שיא פתיחה: שלב ${progress.maxUnlocked}`;
+    }
+  } else {
+    btnPlay.textContent = 'יאללה לשחק! (שלב 1) ⚽';
+    if (savedStatusBanner) {
+      savedStatusBanner.textContent = '💾 ההתקדמות שלך נשמרת אוטומטית בדפדפן';
+    }
+  }
+}
+
+updateStartModalSavedText();
 
 let toastTimeout = null;
 function showToast(msg, isGood = false) {
@@ -108,8 +132,13 @@ const game = new SoccerBossGame(canvas, {
     if (nextLvl > progress.maxUnlocked) {
       progress.maxUnlocked = nextLvl;
     }
-    progress.currentLevel = nextLvl;
+    progress.currentLevel = isFinale ? 1 : nextLvl;
+    const prevBest = progress.bestTimes[level];
+    if (!prevBest || time < prevBest) {
+      progress.bestTimes[level] = Number(time.toFixed(1));
+    }
     saveProgress(progress);
+    updateStartModalSavedText();
 
     winLevel.textContent = `${level} / ${TOTAL_LEVELS}`;
     winTime.textContent = `${time.toFixed(1)} שנ׳`;
@@ -117,12 +146,12 @@ const game = new SoccerBossGame(canvas, {
     if (isFinale) {
       winIcon.textContent = '🏆🎆👑';
       winTitle.textContent = 'אלוף 100 השלבים!';
-      winDesc.textContent = 'הבסת את הבוס והמלכה בגמר הגדול!';
+      winDesc.textContent = 'הבסת את הבוס והמלכה בגמר הגדול! (נשמר בדפדפן)';
       btnNextLevel.textContent = 'שחק שוב מהתחלה ⚽';
     } else {
       winIcon.textContent = level % 10 === 0 ? '🏆🌟' : '⚽🏆';
       winTitle.textContent = level % 10 === 0 ? `סיימת עולם שלם! (שלב ${level})` : `ניצחת את שלב ${level}!`;
-      winDesc.textContent = 'הבוס הובס ב-5 פגיעות! מוכן לאתגר הבא?';
+      winDesc.textContent = `פגיעה בול בבוס! שלב ${nextLvl} נפתח ונשמר אוטומטית 💾`;
       btnNextLevel.textContent = `לשלב ${nextLvl} ⬅️`;
     }
 
@@ -147,6 +176,9 @@ btnNextLevel.addEventListener('click', () => {
   modalWin.close();
   const target = game.config.isFinale ? 1 : Math.min(TOTAL_LEVELS, game.config.level + 1);
   progress.currentLevel = target;
+  if (target > progress.maxUnlocked) {
+    progress.maxUnlocked = target;
+  }
   saveProgress(progress);
   game.loadLevel(target, true);
 });
@@ -168,6 +200,11 @@ btnSound.addEventListener('click', () => {
   progress.muted = !progress.muted;
   sound.setMuted(progress.muted);
   btnSound.textContent = progress.muted ? '🔇' : '🔊';
+  saveProgress(progress);
+});
+
+// Save progress whenever page is hidden/closed
+window.addEventListener('pagehide', () => {
   saveProgress(progress);
 });
 
@@ -214,6 +251,7 @@ function selectLevel(lvl) {
   }
   progress.currentLevel = clamped;
   saveProgress(progress);
+  updateStartModalSavedText();
   modalLevels.close();
   game.loadLevel(clamped, true);
 }

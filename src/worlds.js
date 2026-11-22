@@ -225,16 +225,16 @@ export function generateLevelConfig(level) {
   return {
     level: lvl,
     world,
-    bossMaxHp: 5, // Updated from 10 to 5 hits per user request!
-    bossSpeed: 0.22 + easyRamp * 0.15 + p * 0.32,
-    bossDodgeReaction: 0.35 + easyRamp * 0.22 + p * 0.35,
-    queenSpeed: 0.26 + easyRamp * 0.16 + p * 0.34,
-    queenShotInterval: lvl < 3 ? 0 : Math.max(1.25, 3.6 - easyRamp * 0.85 - p * 1.45),
-    queenShotSpeed: 0.30 + p * 0.28,
+    bossMaxHp: 1, // 1 direct hit on the Boss wins the level!
+    bossSpeed: 0.18 + easyRamp * 0.12 + p * 0.26,
+    bossDodgeReaction: 0.25 + easyRamp * 0.18 + p * 0.30,
+    queenSpeed: 0.20 + easyRamp * 0.14 + p * 0.28,
+    queenShotInterval: lvl < 5 ? 0 : Math.max(1.5, 3.8 - easyRamp * 0.85 - p * 1.35),
+    queenShotSpeed: 0.26 + p * 0.24,
     queenCones,
     playerCones,
     movingDefenders,
-    powerupInterval: Math.max(4.8, 7.5 - p * 1.8),
+    powerupInterval: Math.max(4.2, 6.8 - p * 1.8),
     isFinale: lvl === TOTAL_LEVELS,
     isMilestone: lvl % 10 === 0,
   };
