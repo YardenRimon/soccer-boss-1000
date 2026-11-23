@@ -30,6 +30,8 @@ export class SoccerBossGame {
       ghostGun: 0,
       confuse: 0,
       goldenArmor: 0,
+      dragonMaster: 0,
+      spearMaster: 0,
     };
 
     this.state = 'paused'; // 'paused' | 'playing' | 'restarting' | 'won'
@@ -62,6 +64,7 @@ export class SoccerBossGame {
     this.playerCones = [];
     this.queenCones = [];
     this.kingPits = [];
+    this.guardianGuards = [];
     this.helpers = [];
     this.kingRockets = [];
     this.divingRockets = [];
@@ -140,6 +143,8 @@ export class SoccerBossGame {
       ghostGun: Number(upgrades?.ghostGun) || 0,
       confuse: Number(upgrades?.confuse) || 0,
       goldenArmor: Number(upgrades?.goldenArmor) || 0,
+      dragonMaster: Number(upgrades?.dragonMaster) || 0,
+      spearMaster: Number(upgrades?.spearMaster) || 0,
     };
   }
 
@@ -179,7 +184,7 @@ export class SoccerBossGame {
       y: 0.81, // Positioned clearly above mobile controls bar
       vx: 0,
       vy: 0,
-      r: 0.041, // Harry Potter is the tallest!
+      r: 0.044, // Harry Potter is the tallest!
       ballSpin: 0,
       hasBall: true,
       kickTimer: 0,
@@ -209,20 +214,21 @@ export class SoccerBossGame {
     this.playerCones = this.config.playerCones.map((c) => ({ ...c }));
     this.queenCones = this.config.queenCones.map((c) => ({ ...c }));
     this.fireFences = this.config.fireFences.map((f) => ({ ...f }));
+    this.guardianGuards = this.config.guardianGuards.map((g) => ({ ...g }));
     this.kingPits = this.config.kingPits.map((p) => ({ ...p }));
     this.coins = this.config.initialCoins.map((c) => ({ ...c }));
     this.defenders = this.config.movingDefenders.map((d) => ({ ...d }));
 
-    // 2 Friendly Helpers on the sides: Ron (2nd tallest) & Hermione (shortest), with Harry Potter tallest in the center!
+    // 2 Immortal Helpers guarding Harry on left & right: Ron (2nd tallest) & Hermione (shortest)
     this.helpers = [
       {
         id: 'ron',
         label: 'רון',
-        x: 0.16,
-        y: 0.68,
-        baseX: 0.16,
-        baseY: 0.68,
-        r: 0.032,
+        x: 0.39,
+        y: 0.78,
+        offsetX: -0.11,
+        offsetY: -0.025,
+        r: 0.033, // 2nd tallest
         shootTimer: 5.2,
         spearTimer: 6.4,
         phase: 0,
@@ -231,11 +237,11 @@ export class SoccerBossGame {
       {
         id: 'hermione',
         label: 'הרמיוני',
-        x: 0.84,
-        y: 0.68,
-        baseX: 0.84,
-        baseY: 0.68,
-        r: 0.025,
+        x: 0.61,
+        y: 0.78,
+        offsetX: 0.11,
+        offsetY: -0.025,
+        r: 0.025, // Shortest
         shootTimer: 7.4,
         spearTimer: 8.6,
         phase: Math.PI,
@@ -294,7 +300,7 @@ export class SoccerBossGame {
     this.gunRecoilGhost = 0;
 
     this.shieldsLeft = this.upgrades.shield || 0;
-    this.goldenArmorLeft = this.upgrades.goldenArmor || 0;
+    this.goldenArmorLeft = levelNum >= 100 ? this.upgrades.goldenArmor || 0 : 0;
 
     this.state = startPlaying ? 'playing' : 'paused';
     this._syncHud();
@@ -493,10 +499,9 @@ export class SoccerBossGame {
     }
 
     const lvl = this.upgrades.confuse || 0;
-    const duration = 3.8 + lvl * 0.55;
-    if (!freePickup) {
-      this.confuseCooldown = Math.max(4.0, 7.5 - lvl * 0.65);
-    }
+    const duration = 4.5 + lvl * 0.6;
+    // Confusion works ALL the time with zero cooldown!
+    this.confuseCooldown = 0;
 
     this.queenConfuseTimer = duration;
     this.bossConfuseTimer = duration;
@@ -536,7 +541,8 @@ export class SoccerBossGame {
     }
 
     if (!freePickup) {
-      this.dragonCooldown = 14.0;
+      const dLvl = this.upgrades.dragonMaster || 0;
+      this.dragonCooldown = Math.max(6.0, 14.0 - dLvl * 1.5);
     }
 
     // Spawn 2 fierce Dragons (immune to all balls!)
@@ -581,7 +587,8 @@ export class SoccerBossGame {
       return;
     }
     if (!free) {
-      this.spearCooldown = 4.2;
+      const spearLvl = this.upgrades.spearMaster || 0;
+      this.spearCooldown = Math.max(1.6, 4.2 - spearLvl * 0.48);
       this.player.kickTimer = 0.2;
     }
 
@@ -606,16 +613,15 @@ export class SoccerBossGame {
   _consumeProtectionOrFail(reason, onSaved) {
     if (this.invulnTimer > 0) return false;
 
-    // Golden Armor absorbs hits first!
+    // Permanent Golden Armor absorbs hits WITHOUT ever disappearing!
     if (this.goldenArmorLeft > 0) {
-      this.goldenArmorLeft -= 1;
-      this.invulnTimer = 0.9;
+      this.invulnTimer = 0.95;
       this.shakeTime = 0.16;
       this.shakeMag = 6;
       sound.shieldBreak();
       this._spawnParticles(this.player.x, this.player.y, '#facc15', 22);
-      this._addFloatingText(this.player.x, this.player.y - 0.05, '✨ שריון זהב הציל!', '#fde047');
-      this.callbacks.onToast?.(`✨ שריון הזהב ספג את הפגיעה! (נותרו ${this.goldenArmorLeft})`, true);
+      this._addFloatingText(this.player.x, this.player.y - 0.05, '✨ שריון זהב הגן!', '#fde047');
+      this.callbacks.onToast?.('✨ שריון הזהב הגן עליך ולא נעלם!', true);
       onSaved?.();
       this._syncHud();
       return true;
@@ -817,6 +823,7 @@ export class SoccerBossGame {
 
     this._updateDecoys(dt);
     this._updateHelpers(dt);
+    this._updateGuardianGuards(dt);
     this._updatePlayer(dt);
     this._updateQueen(dt);
     this._updateBoss(dt);
@@ -835,17 +842,63 @@ export class SoccerBossGame {
   _updateHelpers(dt) {
     for (const h of this.helpers) {
       if (h.kickTimer > 0) h.kickTimer = Math.max(0, h.kickTimer - dt);
-      h.phase += dt * 3.2;
-      h.x = h.baseX + Math.sin(h.phase) * 0.045;
-      h.y = h.baseY + Math.cos(h.phase * 1.3) * 0.045;
+      if (h.stunTimer > 0) {
+        h.stunTimer = Math.max(0, h.stunTimer - dt);
+        continue;
+      }
+      h.phase += dt * 3.4;
 
-      // Intercept any Queen hazard flying near the helper!
+      // Ron & Hermione stay beside Harry (left & right) AND actively try to dodge incoming stars!
+      let dodgeOffset = 0;
+      for (const hz of this.hazards) {
+        if (hz.y < h.y && h.y - hz.y < 0.22 && Math.abs(hz.x - h.x) < 0.09) {
+          dodgeOffset = hz.x >= h.x ? -0.09 : 0.09;
+          break;
+        }
+      }
+      const targetX = Math.max(
+        0.07,
+        Math.min(0.93, this.player.x + h.offsetX + Math.sin(h.phase) * 0.018 + dodgeOffset)
+      );
+      const targetY = Math.max(0.42, Math.min(0.86, this.player.y + h.offsetY + Math.cos(h.phase * 1.2) * 0.015));
+      h.x += (targetX - h.x) * Math.min(1, 9.5 * dt);
+      h.y += (targetY - h.y) * Math.min(1, 9.5 * dt);
+
+      // Stars hit Ron/Hermione ONLY if they fail to dodge (and don't have Golden Armor), OR they guard Harry!
       for (let i = this.hazards.length - 1; i >= 0; i--) {
         const hz = this.hazards[i];
-        if (this._distAspect(h.x, h.y, hz.x, hz.y) < (h.r + hz.r) * 1.45) {
-          this._spawnParticles(hz.x, hz.y, '#60a5fa', 10);
-          this._addFloatingText(h.x, h.y - 0.03, `${h.label} חסם!`, '#93c5fd');
+        const hitHelperDirectly = this._distAspect(h.x, h.y, hz.x, hz.y) < h.r + hz.r;
+        const nearHarry = this._distAspect(this.player.x, this.player.y, hz.x, hz.y) < 0.16;
+
+        if (hitHelperDirectly) {
+          if (this.goldenArmorLeft > 0) {
+            this._spawnParticles(hz.x, hz.y, '#facc15', 10);
+            this._addFloatingText(h.x, h.y - 0.04, `✨ שריון ${h.label} חסם!`, '#fde047');
+          } else {
+            h.stunTimer = 2.2;
+            this._spawnParticles(h.x, h.y, '#f87171', 12);
+            this._addFloatingText(h.x, h.y - 0.04, `💫 ${h.label} נפגע מכוכב!`, '#fca5a5');
+          }
+          sound.shieldBreak();
           this.hazards.splice(i, 1);
+        } else if (nearHarry) {
+          this._spawnParticles(hz.x, hz.y, '#60a5fa', 12);
+          this._addFloatingText(h.x, h.y - 0.04, `🛡️ ${h.label} שומר על הארי!`, '#93c5fd');
+          sound.shieldBreak();
+          this.hazards.splice(i, 1);
+        }
+      }
+
+      // Guard Harry: push away/block moving defenders anywhere near Harry or his helpers (immortal!)
+      for (let i = this.defenders.length - 1; i >= 0; i--) {
+        const d = this.defenders[i];
+        const nearHelper = this._distAspect(h.x, h.y, d.x, d.y) < (h.r + d.r) * 1.6;
+        const nearHarry = this._distAspect(this.player.x, this.player.y, d.x, d.y) < 0.14;
+        if (nearHelper || nearHarry) {
+          d.dir = d.x >= this.player.x ? 1 : -1;
+          d.x += d.dir * 0.06;
+          this._spawnParticles(d.x, d.y, '#93c5fd', 10);
+          this._addFloatingText(h.x, h.y - 0.04, `🛡️ ${h.label} הדף שומר!`, '#bae6fd');
         }
       }
 
@@ -874,9 +927,39 @@ export class SoccerBossGame {
       // Ron & Hermione also throw spears at Queen & King!
       h.spearTimer -= dt;
       if (h.spearTimer <= 0) {
-        h.spearTimer = 7.2;
+        const spearLvl = this.upgrades.spearMaster || 0;
+        h.spearTimer = Math.max(3.6, 7.2 - spearLvl * 0.65);
         h.kickTimer = 0.22;
         this.throwSpear(h.label, h.x, h.y - h.r, true);
+      }
+    }
+  }
+
+  _updateGuardianGuards(dt) {
+    // Friendly Guardian-of-Guards patrol the pitch and NEVER hurt Harry!
+    for (const g of this.guardianGuards) {
+      g.x += g.vx * dt;
+      if (g.x < 0.09) {
+        g.x = 0.09;
+        g.vx = Math.abs(g.vx);
+      } else if (g.x > 0.91) {
+        g.x = 0.91;
+        g.vx = -Math.abs(g.vx);
+      }
+
+      // Block Queen's hazard stars and push away enemy defenders!
+      for (let i = this.hazards.length - 1; i >= 0; i--) {
+        const hz = this.hazards[i];
+        if (this._distAspect(g.x, g.y, hz.x, hz.y) < (g.r + hz.r) * 1.5) {
+          this._spawnParticles(hz.x, hz.y, '#34d399', 8);
+          this.hazards.splice(i, 1);
+        }
+      }
+      for (const d of this.defenders) {
+        if (this._distAspect(g.x, g.y, d.x, d.y) < (g.r + d.r) * 1.4) {
+          d.dir *= -1;
+          d.x += d.dir * 0.05;
+        }
       }
     }
   }
@@ -961,7 +1044,7 @@ export class SoccerBossGame {
       const dx = targetPos.x - d.x;
       const dy = targetPos.y - d.y;
       const dist = Math.hypot(dx, dy) || 0.001;
-      const flySpeed = 0.34;
+      const flySpeed = 0.34 + (this.upgrades.dragonMaster || 0) * 0.045;
       d.x += (dx / dist) * flySpeed * dt;
       d.y += (dy / dist) * flySpeed * dt;
 
@@ -1087,10 +1170,8 @@ export class SoccerBossGame {
 
   _updateWeather(dt) {
     const weather = this.config.world.weather;
-    const wind = weather.rainWind;
 
     for (const drop of this.rainDrops) {
-      drop.x += wind * dt * 2.2;
       drop.y += drop.speed * dt;
       if (drop.y > 1.02) {
         if (Math.random() < 0.35 && this.rainSplashes.length < 30) {
@@ -1106,8 +1187,6 @@ export class SoccerBossGame {
         drop.y = -0.05;
         drop.x = Math.random();
       }
-      if (drop.x < -0.05) drop.x = 1.05;
-      if (drop.x > 1.05) drop.x = -0.05;
     }
 
     for (let i = this.rainSplashes.length - 1; i >= 0; i--) {
@@ -1161,6 +1240,9 @@ export class SoccerBossGame {
       this.player.vy *= Math.max(0, 1 - friction * dt);
     }
 
+    const prevX = this.player.x;
+    const prevY = this.player.y;
+
     this.player.x += this.player.vx * dt;
     this.player.y += this.player.vy * dt;
 
@@ -1171,6 +1253,24 @@ export class SoccerBossGame {
     this.player.x = Math.max(minX, Math.min(maxX, this.player.x));
     this.player.y = Math.max(minY, Math.min(maxY, this.player.y));
 
+    // Fire Fences are completely impassable barriers! Player CANNOT cross through them!
+    for (const fence of this.fireFences) {
+      const closestX = Math.max(fence.x1, Math.min(this.player.x, fence.x2));
+      const dist = this._distAspect(this.player.x, this.player.y, closestX, fence.y);
+      const minDist = this.player.r * 0.72 + fence.thickness * 0.95;
+      if (dist < minDist) {
+        // Push Harry physically back so he can NEVER pass through the Fire Fence!
+        this.player.x = prevX;
+        this.player.y = prevY >= fence.y ? Math.max(fence.y + minDist * 0.7, prevY) : Math.min(fence.y - minDist * 0.7, prevY);
+        this.player.vx = 0;
+        this.player.vy = 0;
+        this._consumeProtectionOrFail('אי אפשר לעבור את גדר האש! 🔥', () => {
+          this.player.y = prevY >= fence.y ? Math.min(0.85, fence.y + 0.06) : Math.max(0.42, fence.y - 0.06);
+        });
+        return;
+      }
+    }
+
     const speedMag = Math.hypot(this.player.vx, this.player.vy);
     this.player.ballSpin += speedMag * dt * 20;
 
@@ -1180,7 +1280,7 @@ export class SoccerBossGame {
       const cone = this.playerCones[i];
       const dist = this._distAspect(this.player.x, this.player.y, cone.x, cone.y);
       if (dist < (this.player.r + cone.r) * hitboxMult) {
-        this._consumeProtectionOrFail('נתקעת בקונוס! מתחילים מחדש 🚧', () => {
+        this._consumeProtectionOrFail(`נתקעת בקונוס! מנסים את שלב ${this.config.level} שוב 🚧`, () => {
           this._spawnParticles(cone.x, cone.y, '#f97316', 14);
           this.playerCones.splice(i, 1);
         });
@@ -1192,7 +1292,7 @@ export class SoccerBossGame {
       const cone = this.queenCones[i];
       const dist = this._distAspect(this.player.x, this.player.y, cone.x, cone.y);
       if (dist < (this.player.r + cone.r) * hitboxMult) {
-        this._consumeProtectionOrFail('נתקעת בקונוס! מתחילים מחדש 🚧', () => {
+        this._consumeProtectionOrFail(`נתקעת בקונוס! מנסים את שלב ${this.config.level} שוב 🚧`, () => {
           this._spawnParticles(cone.x, cone.y, '#f97316', 14);
           this.queenCones.splice(i, 1);
         });
@@ -1200,18 +1300,7 @@ export class SoccerBossGame {
       }
     }
 
-    // Fire Fences collision (makes dribbling harder for the player!)
-    for (const fence of this.fireFences) {
-      const closestX = Math.max(fence.x1, Math.min(this.player.x, fence.x2));
-      const dist = this._distAspect(this.player.x, this.player.y, closestX, fence.y);
-      if (dist < this.player.r * 0.72 + fence.thickness * 0.85) {
-        this._consumeProtectionOrFail('נשרפת בגדר האש! מתחילים מחדש 🔥', () => {
-          this.player.y = Math.min(0.85, this.player.y + 0.07);
-        });
-        return;
-      }
-    }
-
+    // Check Queen collision (after Fire Fence barrier check)
     const distQueen = this._distAspect(this.player.x, this.player.y, this.queen.x, this.queen.y);
     if (!this.queenEaten && distQueen < (this.player.r + this.queen.r) * 0.82 && this.queenConfuseTimer <= 0) {
       this._consumeProtectionOrFail('המלכה חטפה לך את הכדור! 👑', () => {
@@ -1238,12 +1327,8 @@ export class SoccerBossGame {
 
     let targetX = this.player.x;
     if (this.queenConfuseTimer > 0) {
-      // Confused Queen chases decoys or wanders crazily in the wrong direction!
-      if (this.decoys.length > 0) {
-        targetX = this.decoys[0].x;
-      } else {
-        targetX = 0.5 + Math.sin(this.levelTime * 7.5) * 0.38;
-      }
+      // Confused Queen ALWAYS moves away from Harry's lane so the shot path is wide open!
+      targetX = this.player.x < 0.5 ? 0.86 : 0.14;
     } else {
       const incoming = this.balls.find((b) => b.vy < 0 && !b.pierceQueen && b.y > this.queen.y - 0.03);
       if (incoming) {
@@ -1318,10 +1403,9 @@ export class SoccerBossGame {
     const speed = this.config.bossSpeed * rageMult * rainMult;
 
     if (this.bossConfuseTimer > 0) {
-      // Confused King wobbles unpredictably and forgets how to dodge!
-      const dizzyTarget = 0.5 + Math.cos(this.levelTime * 6.5) * 0.34;
-      const targetVx = (dizzyTarget - this.boss.x) * 2.8;
-      this.boss.vx += (targetVx - this.boss.vx) * Math.min(1, 6 * dt);
+      // Confused King ALWAYS wanders right into Harry's front lane instead of dodging!
+      const targetVx = (this.player.x - this.boss.x) * 3.2;
+      this.boss.vx += (targetVx - this.boss.vx) * Math.min(1, 7 * dt);
     } else {
       let threat = null;
       for (const b of this.balls) {
@@ -1783,9 +1867,12 @@ export class SoccerBossGame {
       this._drawFireFence(fence.x1 * W, fence.x2 * W, fence.y * H, fence.thickness * W);
     }
 
-    // 10. Moving Defenders
+    // 10. Moving Defenders & Friendly Guardian Guards (never hurt Harry!)
     for (const d of this.defenders) {
       this._drawDefender(d.x * W, d.y * H, d.r * W);
+    }
+    for (const g of this.guardianGuards) {
+      this._drawGuardianGuard(g.x * W, g.y * H, g.r * W);
     }
 
     // 10.5 Pits for the King (in Boss Zone)
@@ -1806,8 +1893,19 @@ export class SoccerBossGame {
       this._drawDecoy(d.x * W, d.y * H, this.player.r * W * 0.95, d);
     }
 
-    // 11.5 Two Friendly Helpers on the sides: Ron & Hermione
+    // 11.5 Two Immortal Helpers guarding Harry on the sides: Ron & Hermione
     for (const h of this.helpers) {
+      // Draw subtle protective guard link from Ron/Hermione to Harry
+      ctx.save();
+      ctx.strokeStyle = 'rgba(147, 197, 253, 0.32)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(h.x * W, h.y * H);
+      ctx.lineTo(this.player.x * W, this.player.y * H);
+      ctx.stroke();
+      ctx.restore();
+
       this._drawHelper(h.x * W, h.y * H, h.r * W, h);
     }
 
@@ -1849,8 +1947,8 @@ export class SoccerBossGame {
     // 17. Day / Night Atmospheric Lighting + Stadium Spotlights
     this._drawTimeOfDayLighting(W, H, tod);
 
-    // 18. Falling Rain Streaks & Jagged Lightning Bolts
-    this._drawRainAndLightning(W, H, world);
+    // 18. Falling Rain Streaks & Jagged Lightning Bolts (no wind)
+    this._drawRainAndLightning(W, H);
 
     // 19. Particles
     for (const p of this.particles) {
@@ -1959,6 +2057,7 @@ export class SoccerBossGame {
   _drawHelper(x, y, r, helper) {
     const ctx = this.ctx;
     const isRon = helper.id === 'ron';
+    const hasGoldArmor = this.goldenArmorLeft > 0;
     ctx.save();
 
     // Shadow
@@ -1967,14 +2066,49 @@ export class SoccerBossGame {
     ctx.ellipse(x, y + r * 0.88, r * 0.85, r * 0.32, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Gryffindor Robe & Scarf base
-    ctx.fillStyle = '#7f1d1d';
-    ctx.strokeStyle = '#facc15';
-    ctx.lineWidth = 2;
+    // Golden Armor Radiant Aura for Ron & Hermione too!
+    if (hasGoldArmor) {
+      ctx.save();
+      ctx.strokeStyle = '#fde047';
+      ctx.fillStyle = 'rgba(250, 204, 21, 0.22)';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(x, y, r * 1.32, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Gryffindor Robe OR Golden Armor Body (same as Harry Potter all the time!)
+    if (hasGoldArmor) {
+      const goldGrad = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, 2, x, y, r);
+      goldGrad.addColorStop(0, '#fef08a');
+      goldGrad.addColorStop(0.55, '#eab308');
+      goldGrad.addColorStop(1, '#a16207');
+      ctx.fillStyle = goldGrad;
+      ctx.strokeStyle = '#fef9c3';
+      ctx.lineWidth = 2.6;
+    } else {
+      ctx.fillStyle = '#7f1d1d';
+      ctx.strokeStyle = '#facc15';
+      ctx.lineWidth = 2;
+    }
     ctx.beginPath();
     ctx.arc(x, y + r * 0.12, r * 0.96, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
+
+    // Golden Armor Shoulder Plates for Ron & Hermione!
+    if (hasGoldArmor) {
+      ctx.fillStyle = '#fde047';
+      ctx.strokeStyle = '#854d0e';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.arc(x - r * 0.78, y + r * 0.1, r * 0.26, 0, Math.PI * 2);
+      ctx.arc(x + r * 0.78, y + r * 0.1, r * 0.26, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
 
     // Face
     ctx.fillStyle = '#fde68a';
@@ -2015,14 +2149,33 @@ export class SoccerBossGame {
       ctx.restore();
     }
 
-    // Name tag above head
+    // Name tag above head (with stun indicator if hit by a star)
     ctx.font = '800 10px system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.strokeStyle = 'rgba(0,0,0,0.8)';
     ctx.lineWidth = 2.5;
-    ctx.strokeText(helper.label, x, y - r - 6);
-    ctx.fillStyle = isRon ? '#fed7aa' : '#fde68a';
-    ctx.fillText(helper.label, x, y - r - 6);
+    const tag = helper.stunTimer > 0 ? `${helper.label} 💫` : helper.label;
+    ctx.strokeText(tag, x, y - r - 6);
+    ctx.fillStyle = helper.stunTimer > 0 ? '#fca5a5' : isRon ? '#fed7aa' : '#fde68a';
+    ctx.fillText(tag, x, y - r - 6);
+    ctx.restore();
+  }
+
+  _drawGuardianGuard(x, y, r) {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.fillStyle = '#065f46';
+    ctx.strokeStyle = '#34d399';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.font = `${Math.round(r * 1.2)}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('⚔️', x, y + 1);
     ctx.restore();
   }
 
@@ -2344,9 +2497,8 @@ export class SoccerBossGame {
     ctx.restore();
   }
 
-  _drawRainAndLightning(W, H, world) {
+  _drawRainAndLightning(W, H) {
     const ctx = this.ctx;
-    const wind = world.weather.rainWind;
 
     ctx.save();
     ctx.strokeStyle = 'rgba(215, 238, 255, 0.62)';
@@ -2356,11 +2508,10 @@ export class SoccerBossGame {
       ctx.globalAlpha = d.alpha;
       const x1 = d.x * W;
       const y1 = d.y * H;
-      const x2 = x1 + wind * W * 0.14;
       const y2 = y1 + d.len * H;
       ctx.beginPath();
       ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
+      ctx.lineTo(x1, y2);
       ctx.stroke();
     }
     ctx.restore();
@@ -2943,6 +3094,7 @@ export class SoccerBossGame {
       this.callbacks.onFirstInput?.();
     });
 
+    // Also enforce Fire Fence impassable barrier during touch-drag!
     this.canvas.addEventListener('pointermove', (e) => {
       if (!this.pointer.active || e.pointerId !== this.pointer.id) return;
       if (this.state !== 'playing') return;
@@ -2957,10 +3109,30 @@ export class SoccerBossGame {
 
       const speedMult = 1 + (this.upgrades.speed || 0) * 0.08;
       const dragGain = (this.turboTimer > 0 ? 1.38 : 1.18) * speedMult;
-      this.player.x += dx * dragGain;
-      this.player.y += dy * dragGain;
-      this.player.vx = dx * 24;
-      this.player.vy = dy * 24;
+      const nextX = this.player.x + dx * dragGain;
+      const nextY = this.player.y + dy * dragGain;
+
+      // Prevent pointer drag from teleporting/tunneling past a Fire Fence!
+      let blocked = false;
+      for (const fence of this.fireFences) {
+        const crossedY =
+          (this.player.y <= fence.y && nextY >= fence.y) || (this.player.y >= fence.y && nextY <= fence.y);
+        const minX = Math.min(this.player.x, nextX);
+        const maxX = Math.max(this.player.x, nextX);
+        const overlapsX = maxX >= fence.x1 - 0.02 && minX <= fence.x2 + 0.02;
+        if (crossedY && overlapsX) {
+          blocked = true;
+          this._consumeProtectionOrFail('אי אפשר לעבור את גדר האש! 🔥', () => {});
+          break;
+        }
+      }
+
+      if (!blocked) {
+        this.player.x = nextX;
+        this.player.y = nextY;
+        this.player.vx = dx * 24;
+        this.player.vy = dy * 24;
+      }
 
       this.pointer.lastX = x;
       this.pointer.lastY = y;

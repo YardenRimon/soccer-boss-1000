@@ -1,6 +1,6 @@
-// 100 Levels across 10 Worlds + Difficulty presets + Upgrade Shop definitions
+// 1,000 Levels across 10 Worlds (100 levels per world) + Difficulty presets + Upgrade Shop definitions
 
-export const TOTAL_LEVELS = 100;
+export const TOTAL_LEVELS = 1000;
 
 export const DIFFICULTIES = {
   easy: {
@@ -97,22 +97,39 @@ export const SHOP_UPGRADES = [
     name: 'שריון זהב',
     emoji: '✨',
     maxLevel: 5,
+    minLevel: 100,
     costs: [60, 120, 195, 290, 420],
-    desc: 'שריון זהב מלכותי! סופג פגיעות מקונוסים, שומרים ומכשולים + בונוס מטבעות (+10% לרמה)!',
+    desc: 'נפתח משלב 100 ומעלה! שריון זהב נצחי להארי, רון והרמיוני שלא נעלם + בונוס מטבעות!',
+  },
+  {
+    id: 'dragonMaster',
+    name: 'מאלף דרקונים',
+    emoji: '🐉',
+    maxLevel: 5,
+    costs: [70, 140, 220, 320, 450],
+    desc: 'מקצר את זמן הטעינה של הדרקונים ומאיץ את מעופם לאכול את המלכה והמלך!',
+  },
+  {
+    id: 'spearMaster',
+    name: 'חנית קסם',
+    emoji: '🔱',
+    maxLevel: 5,
+    costs: [45, 95, 155, 230, 320],
+    desc: 'מקצר את טעינת החניתות של הארי ומאיץ את רון והרמיוני!',
   },
 ];
 
 export const WORLDS = [
-  { id: 1, name: 'אצטדיון הבית', emoji: '⚽', range: [1, 10], slippery: false },
-  { id: 2, name: 'מגרש שכונתי', emoji: '🏙️', range: [11, 20], slippery: false },
-  { id: 3, name: 'אצטדיון הקרח', emoji: '❄️', range: [21, 30], slippery: true },
-  { id: 4, name: 'מדבר הלהט', emoji: '🏜️', range: [31, 40], slippery: false },
-  { id: 5, name: "ג'ונגל האמזונס", emoji: '🌴', range: [41, 50], slippery: false },
-  { id: 6, name: 'הר הגעש', emoji: '🌋', range: [51, 60], slippery: false },
-  { id: 7, name: 'עיר הניאון', emoji: '⚡', range: [61, 70], slippery: false },
-  { id: 8, name: 'חוף טרופי', emoji: '🏖️', range: [71, 80], slippery: false },
-  { id: 9, name: 'ארמון המלכה', emoji: '👑', range: [81, 90], slippery: false },
-  { id: 10, name: 'גלקסיית האלופים', emoji: '🌌', range: [91, 100], slippery: false },
+  { id: 1, name: 'אצטדיון הבית', emoji: '⚽', range: [1, 100], slippery: false },
+  { id: 2, name: 'מגרש שכונתי', emoji: '🏙️', range: [101, 200], slippery: false },
+  { id: 3, name: 'אצטדיון הקרח', emoji: '❄️', range: [201, 300], slippery: true },
+  { id: 4, name: 'מדבר הלהט', emoji: '🏜️', range: [301, 400], slippery: false },
+  { id: 5, name: "ג'ונגל האמזונס", emoji: '🌴', range: [401, 500], slippery: false },
+  { id: 6, name: 'הר הגעש', emoji: '🌋', range: [501, 600], slippery: false },
+  { id: 7, name: 'עיר הניאון', emoji: '⚡', range: [601, 700], slippery: false },
+  { id: 8, name: 'חוף טרופי', emoji: '🏖️', range: [701, 800], slippery: false },
+  { id: 9, name: 'ארמון המלכה', emoji: '👑', range: [801, 900], slippery: false },
+  { id: 10, name: 'גלקסיית האלופים', emoji: '🌌', range: [901, 1000], slippery: false },
 ];
 
 export const PITCH_PATTERNS = ['stripes', 'checkered', 'circles', 'diagonal', 'vertical'];
@@ -170,7 +187,7 @@ const PATTERN_NAMES_HE = {
 
 export function getWorldForLevel(level) {
   const clamped = Math.max(1, Math.min(TOTAL_LEVELS, level));
-  const idx = Math.floor((clamped - 1) / 10);
+  const idx = Math.floor((clamped - 1) / 100);
   return WORLDS[idx] || WORLDS[0];
 }
 
@@ -208,9 +225,8 @@ function generateLevelVisualStyle(lvl, baseWorld) {
   const queenColor = `hsl(${queenHue}, 84%, 56%)`;
 
   const rainCount = 65 + ((lvl * 19) % 55);
-  const rainWind = ((lvl % 5) - 2) * 0.07;
-  const lightningIntervalMin = timeOfDay.isNight ? 2.4 : 3.2;
-  const lightningIntervalMax = timeOfDay.isNight ? 4.8 : 6.2;
+  const lightningIntervalMin = 2.8;
+  const lightningIntervalMax = 5.4;
 
   return {
     ...baseWorld,
@@ -226,7 +242,6 @@ function generateLevelVisualStyle(lvl, baseWorld) {
     timeOfDay,
     weather: {
       rainCount,
-      rainWind,
       lightningIntervalMin,
       lightningIntervalMax,
     },
@@ -241,10 +256,10 @@ export function generateLevelConfig(level, difficultyId = 'easy') {
   const world = generateLevelVisualStyle(lvl, baseWorld);
 
   const p = (lvl - 1) / (TOTAL_LEVELS - 1);
-  const easyRamp = Math.min(1, (lvl - 1) / 15);
+  const easyRamp = Math.min(1, (lvl - 1) / 40);
 
   // Zigzag cones for the Queen's sliding corridor
-  const queenConeCount = lvl < 4 ? 3 : lvl < 20 ? 4 : 5;
+  const queenConeCount = lvl < 8 ? 3 : lvl < 40 ? 4 : 5;
   const queenCones = [];
   const qStartX = 0.16;
   const qEndX = 0.84;
@@ -257,7 +272,7 @@ export function generateLevelConfig(level, difficultyId = 'easy') {
   }
 
   // Zigzag cones for the Player's field
-  const playerConeRows = lvl < 4 ? 3 : lvl < 15 ? 4 : lvl < 45 ? 5 : 6;
+  const playerConeRows = lvl < 6 ? 3 : lvl < 30 ? 4 : lvl < 160 ? 5 : 6;
   const playerCones = [];
   const startY = 0.48;
   const endY = 0.77;
@@ -271,7 +286,7 @@ export function generateLevelConfig(level, difficultyId = 'easy') {
     const x = Math.max(0.16, Math.min(0.84, 0.5 + side * spread));
     playerCones.push({ x, y, zone: 'player', r: 0.034 });
 
-    if (lvl >= 12 && i % 2 === 1 && rand() < 0.35 + p * 0.45) {
+    if (lvl >= 25 && i % 2 === 1 && rand() < 0.35 + p * 0.45) {
       const oppositeX = Math.max(0.14, Math.min(0.86, 0.5 - side * (0.28 + rand() * 0.08)));
       if (Math.abs(oppositeX - x) > 0.24) {
         playerCones.push({ x: oppositeX, y: y + (rand() - 0.5) * 0.02, zone: 'player', r: 0.03 });
@@ -296,9 +311,9 @@ export function generateLevelConfig(level, difficultyId = 'easy') {
 
   // Moving side defenders on higher levels
   const movingDefenders = [];
-  const minDefenderLvl = diff.id === 'easy' ? 16 : diff.id === 'normal' ? 11 : 6;
+  const minDefenderLvl = diff.id === 'easy' ? 20 : diff.id === 'normal' ? 12 : 6;
   if (lvl >= minDefenderLvl) {
-    const count = lvl < 35 ? 1 : lvl < 70 ? 2 : 3;
+    const count = lvl < 140 ? 1 : lvl < 450 ? 2 : 3;
     for (let i = 0; i < count; i++) {
       const y = 0.54 + (i / Math.max(1, count)) * 0.18;
       movingDefenders.push({
@@ -324,41 +339,52 @@ export function generateLevelConfig(level, difficultyId = 'easy') {
     });
   }
 
-  // Fire Fences (גדרות אש) as obstacles for the player to weave around!
+  // Fire Fences (גדרות אש) — +2 extra Fire Fences as impassable obstacles to weave around!
   const fireFences = [];
-  const fenceCount = lvl < 5 ? 1 : lvl < 35 ? 2 : 3;
+  const fenceCount = lvl < 15 ? 3 : lvl < 120 ? 4 : 5;
   for (let i = 0; i < fenceCount; i++) {
-    const fy = fenceCount === 1 ? 0.61 : 0.52 + i * 0.13;
-    // Place on left or right side leaving plenty of room to dribble around
+    const fy = 0.46 + (i / Math.max(1, fenceCount - 1)) * 0.27;
     const onLeft = (i + lvl) % 2 === 0;
-    const width = 0.22 + Math.min(0.14, p * 0.14);
+    const width = 0.21 + Math.min(0.12, p * 0.12);
     const x1 = onLeft ? 0.08 : 0.92 - width;
     const x2 = x1 + width;
-    fireFences.push({ x1, x2, y: fy, thickness: 0.018 });
+    fireFences.push({ x1, x2, y: fy, thickness: 0.017 });
   }
 
-  const minQueenShotLvl = diff.id === 'easy' ? 8 : diff.id === 'normal' ? 4 : 2;
+  // Guardian-of-Guards (שומרי שומרים) — friendly guards that NEVER hurt Harry!
+  const guardianGuards = [];
+  for (let i = 0; i < 2; i++) {
+    guardianGuards.push({
+      x: i === 0 ? 0.25 : 0.75,
+      y: 0.56 + i * 0.12,
+      vx: (i === 0 ? 1 : -1) * 0.16,
+      r: 0.028,
+    });
+  }
+
+  const minQueenShotLvl = diff.id === 'easy' ? 4 : diff.id === 'normal' ? 2 : 1;
 
   return {
     level: lvl,
     difficulty: diff,
     world,
     bossMaxHp: diff.bossHits,
-    bossSpeed: (0.18 + easyRamp * 0.12 + p * 0.25) * diff.speedMult,
-    bossDodgeReaction: (0.24 + easyRamp * 0.18 + p * 0.28) * diff.speedMult,
-    queenSpeed: (0.20 + easyRamp * 0.14 + p * 0.26) * diff.speedMult,
+    bossSpeed: (0.24 + easyRamp * 0.15 + p * 0.28) * diff.speedMult,
+    bossDodgeReaction: (0.34 + easyRamp * 0.22 + p * 0.30) * diff.speedMult,
+    queenSpeed: (0.26 + easyRamp * 0.16 + p * 0.28) * diff.speedMult,
     queenShotInterval:
-      lvl < minQueenShotLvl ? 0 : Math.max(1.3, (3.8 - easyRamp * 0.85 - p * 1.35) / diff.speedMult),
-    queenShotSpeed: (0.26 + p * 0.22) * diff.speedMult,
+      lvl < minQueenShotLvl ? 0 : Math.max(1.05, (3.2 - easyRamp * 0.85 - p * 1.25) / diff.speedMult),
+    queenShotSpeed: (0.30 + p * 0.24) * diff.speedMult,
     coneHitboxMult: diff.coneHitboxMult,
     queenCones,
     playerCones,
     fireFences,
+    guardianGuards,
     kingPits,
     initialCoins,
     movingDefenders,
     powerupInterval: Math.max(4.2, 6.8 - p * 1.8),
     isFinale: lvl === TOTAL_LEVELS,
-    isMilestone: lvl % 10 === 0,
+    isMilestone: lvl % 100 === 0,
   };
 }

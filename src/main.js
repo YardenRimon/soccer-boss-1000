@@ -2,8 +2,14 @@ import { sound } from './audio.js';
 import { SoccerBossGame } from './game.js';
 import { DIFFICULTIES, SHOP_UPGRADES, TOTAL_LEVELS, WORLDS } from './worlds.js';
 
-const STORAGE_KEY = 'soccer_boss_100_save_v3';
-const LEGACY_KEYS = ['soccer_boss_100_save_v2', 'soccer_boss_100_save_v1', 'soccer_boss_1000_save_v1'];
+const STORAGE_KEY = 'soccer_boss_1000_save_permanent';
+const ALL_KEYS = [
+  STORAGE_KEY,
+  'soccer_boss_100_save_v3',
+  'soccer_boss_100_save_v2',
+  'soccer_boss_100_save_v1',
+  'soccer_boss_1000_save_v1',
+];
 
 function loadProgress() {
   const defaults = {
@@ -21,6 +27,8 @@ function loadProgress() {
       ghostGun: 0,
       confuse: 0,
       goldenArmor: 0,
+      dragonMaster: 0,
+      spearMaster: 0,
     },
     unlockAll: false,
     muted: false,
@@ -28,48 +36,77 @@ function loadProgress() {
   };
 
   try {
-    let raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      for (const k of LEGACY_KEYS) {
-        raw = localStorage.getItem(k);
-        if (raw) break;
+    // Merge across all saved keys taking the HIGHEST progress so nothing ever reverts!
+    let bestMaxUnlocked = 1;
+    let bestCurrentLevel = 1;
+    let bestCoins = 0;
+    let bestGiantScale = 1.0;
+    let latest = null;
+    const mergedUpgrades = { ...defaults.upgrades };
+    const mergedBestTimes = {};
+
+    for (const k of ALL_KEYS) {
+      const raw = localStorage.getItem(k);
+      if (!raw) continue;
+      const p = JSON.parse(raw);
+      if (!p || typeof p !== 'object') continue;
+      if (!latest) latest = p;
+
+      const mu = Math.max(1, Math.min(TOTAL_LEVELS, Number(p.maxUnlocked) || 1));
+      const cl = Math.max(1, Math.min(TOTAL_LEVELS, Number(p.currentLevel) || mu));
+      bestMaxUnlocked = Math.max(bestMaxUnlocked, mu, cl);
+      bestCurrentLevel = Math.max(bestCurrentLevel, cl);
+      bestCoins = Math.max(bestCoins, Math.floor(Number(p.coins) || 0));
+      bestGiantScale = Math.max(bestGiantScale, Math.min(1.65, Number(p.giantScale) || 1.0));
+
+      if (p.upgrades && typeof p.upgrades === 'object') {
+        for (const upKey of Object.keys(mergedUpgrades)) {
+          mergedUpgrades[upKey] = Math.max(mergedUpgrades[upKey], Math.min(5, Number(p.upgrades[upKey]) || 0));
+        }
+      }
+      if (p.bestTimes && typeof p.bestTimes === 'object') {
+        for (const [lvlKey, tVal] of Object.entries(p.bestTimes)) {
+          if (!mergedBestTimes[lvlKey] || tVal < mergedBestTimes[lvlKey]) {
+            mergedBestTimes[lvlKey] = tVal;
+          }
+        }
       }
     }
-    if (!raw) return defaults;
 
-    const parsed = JSON.parse(raw);
-    const maxUnlocked = Math.max(1, Math.min(TOTAL_LEVELS, Number(parsed.maxUnlocked) || 1));
-    const currentLevel = Math.max(1, Math.min(TOTAL_LEVELS, Number(parsed.currentLevel) || maxUnlocked));
-    const difficulty = DIFFICULTIES[parsed.difficulty] ? parsed.difficulty : 'easy';
-    const up = parsed.upgrades && typeof parsed.upgrades === 'object' ? parsed.upgrades : {};
+    if (!latest) return defaults;
+
+    const currentWorldStart = Math.floor((bestMaxUnlocked - 1) / 100) * 100 + 1;
+    const currentLevel = Math.max(currentWorldStart, bestCurrentLevel);
 
     return {
       currentLevel,
-      maxUnlocked: Math.max(maxUnlocked, currentLevel),
-      coins: Math.max(0, Math.floor(Number(parsed.coins) || 0)),
-      difficulty,
-      giantScale: Math.max(1.0, Math.min(1.65, Number(parsed.giantScale) || 1.0)),
-      upgrades: {
-        speed: Math.max(0, Math.min(5, Number(up.speed) || 0)),
-        shot: Math.max(0, Math.min(5, Number(up.shot) || 0)),
-        shield: Math.max(0, Math.min(5, Number(up.shield) || 0)),
-        magnet: Math.max(0, Math.min(5, Number(up.magnet) || 0)),
-        startFire: Math.max(0, Math.min(5, Number(up.startFire) || 0)),
-        ghostGun: Math.max(0, Math.min(5, Number(up.ghostGun) || 0)),
-        confuse: Math.max(0, Math.min(5, Number(up.confuse) || 0)),
-        goldenArmor: Math.max(0, Math.min(5, Number(up.goldenArmor) || 0)),
-      },
-      unlockAll: Boolean(parsed.unlockAll),
-      muted: Boolean(parsed.muted),
-      bestTimes: parsed.bestTimes && typeof parsed.bestTimes === 'object' ? parsed.bestTimes : {},
+      maxUnlocked: Math.max(bestMaxUnlocked, currentLevel),
+      coins: bestCoins,
+      difficulty: DIFFICULTIES[latest.difficulty] ? latest.difficulty : 'easy',
+      giantScale: bestGiantScale,
+      upgrades: mergedUpgrades,
+      unlockAll: Boolean(latest.unlockAll),
+      muted: Boolean(latest.muted),
+      bestTimes: mergedBestTimes,
     };
   } catch {
     return defaults;
   }
 }
 
-function saveProgress(data) {
+function saveProgress(data, allowExplicitReset = false) {
   try {
+    // Monotonic forward-only guard: never allow saving a lower maxUnlocked or currentLevel unless explicitly reset!
+    if (!allowExplicitReset) {
+      const existingRaw = localStorage.getItem(STORAGE_KEY);
+      if (existingRaw) {
+        const prev = JSON.parse(existingRaw);
+        const prevMax = Math.max(1, Math.min(TOTAL_LEVELS, Number(prev?.maxUnlocked) || 1));
+        const prevCur = Math.max(1, Math.min(TOTAL_LEVELS, Number(prev?.currentLevel) || 1));
+        data.maxUnlocked = Math.max(data.maxUnlocked, prevMax);
+        data.currentLevel = Math.max(data.currentLevel, prevCur);
+      }
+    }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch {
     // Ignore storage quota / privacy mode errors
@@ -257,7 +294,7 @@ const game = new SoccerBossGame(canvas, {
     }
 
     const chips = [];
-    if (goldenArmorLeft > 0) chips.push(`<span class="powerup-chip gold-chip">✨ שריון זהב ×${goldenArmorLeft}</span>`);
+    if (goldenArmorLeft > 0) chips.push('<span class="powerup-chip gold-chip">✨ שריון זהב נצחי</span>');
     if (shieldsLeft > 0) chips.push(`<span class="powerup-chip shield-chip">🛡️ מגן ×${shieldsLeft}</span>`);
     if (giantScale > 1.01) chips.push(`<span class="powerup-chip giant-chip">💪 גודל ×${giantScale.toFixed(2)}</span>`);
     if (queenConfuseTime > 0 || bossConfuseTime > 0) {
@@ -281,16 +318,16 @@ const game = new SoccerBossGame(canvas, {
     touchHint.classList.add('hidden');
   },
   onWin: ({ level, time, coinsEarned, giantScale, skipWorld, isFinale }) => {
-    const nextWorldStart = Math.min(TOTAL_LEVELS, Math.floor((level - 1) / 10) * 10 + 11);
+    const nextWorldStart = Math.min(TOTAL_LEVELS, Math.floor((level - 1) / 100) * 100 + 101);
     const nextLvl = skipWorld ? nextWorldStart : Math.min(TOTAL_LEVELS, level + 1);
-    const targetLevel = Math.max(progress.maxUnlocked, nextLvl);
+    const targetLevel = Math.max(progress.maxUnlocked, progress.currentLevel, nextLvl);
 
     if (targetLevel > progress.maxUnlocked) {
       progress.maxUnlocked = targetLevel;
     }
-    progress.currentLevel = isFinale ? 1 : targetLevel;
-    progress.giantScale = isFinale ? 1.0 : giantScale;
-    pendingNextLevel = progress.currentLevel;
+    progress.currentLevel = targetLevel;
+    progress.giantScale = giantScale;
+    pendingNextLevel = targetLevel;
     saveProgress(progress);
     updateStartModalSavedText();
 
@@ -300,17 +337,17 @@ const game = new SoccerBossGame(canvas, {
 
     if (isFinale) {
       winIcon.textContent = '🏆🎆👑';
-      winTitle.textContent = 'אלוף 100 השלבים!';
+      winTitle.textContent = 'אלוף 1,000 השלבים!';
       winDesc.textContent = 'הבסת את המלך והמלכה בגמר הגדול!';
       btnNextLevel.textContent = 'שחק שוב מהתחלה ⚽';
     } else if (skipWorld) {
       winIcon.textContent = '🚀🌟🏆';
-      winTitle.textContent = 'טיל פגע במלך!';
-      winDesc.textContent = `עוברים ישר לעולם הבא — שלב ${pendingNextLevel}! 🚀`;
+      winTitle.textContent = 'עוברים לעולם הבא!';
+      winDesc.textContent = `קפצת ישר לשלב ${pendingNextLevel}! 🚀`;
       btnNextLevel.textContent = `לשלב ${pendingNextLevel} 🚀`;
     } else {
-      winIcon.textContent = level % 10 === 0 ? '🏆🌟' : '⚽🏆';
-      winTitle.textContent = level % 10 === 0 ? `סיימת עולם שלם! (שלב ${level})` : `ניצחת את שלב ${level}!`;
+      winIcon.textContent = level % 100 === 0 ? '🏆🌟' : '⚽🏆';
+      winTitle.textContent = level % 100 === 0 ? `סיימת עולם שלם! (שלב ${level})` : `ניצחת את שלב ${level}!`;
       winDesc.textContent = `שלב ${pendingNextLevel} נפתח ונשמר אוטומטית בדפדפן 💾`;
       btnNextLevel.textContent = `לשלב ${pendingNextLevel} ⬅️`;
     }
@@ -463,13 +500,20 @@ function renderShop() {
   for (const item of SHOP_UPGRADES) {
     const currentLvl = progress.upgrades[item.id] || 0;
     const isMax = currentLvl >= item.maxLevel;
+    const lockedByLevel = Boolean(item.minLevel && progress.maxUnlocked < item.minLevel && !progress.unlockAll);
     const cost = isMax ? 0 : item.costs[currentLvl];
-    const canAfford = !isMax && progress.coins >= cost;
+    const canAfford = !isMax && !lockedByLevel && progress.coins >= cost;
 
     let pipsHtml = '';
     for (let i = 0; i < item.maxLevel; i++) {
       pipsHtml += `<span class="shop-pip${i < currentLvl ? ' filled' : ''}"></span>`;
     }
+
+    const btnText = lockedByLevel
+      ? `🔒 משלב ${item.minLevel}+`
+      : isMax
+        ? 'מקסימום ✓'
+        : `שדרג (${cost} 🪙)`;
 
     const row = document.createElement('div');
     row.className = 'shop-item';
@@ -484,7 +528,7 @@ function renderShop() {
         <div class="shop-level-pips">${pipsHtml}</div>
       </div>
       <button type="button" class="shop-buy-btn" ${canAfford ? '' : 'disabled'}>
-        ${isMax ? 'מקסימום ✓' : `שדרג (${cost} 🪙)`}
+        ${btnText}
       </button>
     `;
 
@@ -551,7 +595,7 @@ modalShop.addEventListener('cancel', () => {
 // ===================== LEVEL PICKER =====================
 function renderWorldsList() {
   worldsList.innerHTML = '';
-  const currentWorldIdx = Math.floor((progress.maxUnlocked - 1) / 10);
+  const currentWorldIdx = Math.floor((progress.maxUnlocked - 1) / 100);
 
   for (let idx = 0; idx < WORLDS.length; idx++) {
     const w = WORLDS[idx];
@@ -584,7 +628,9 @@ function renderWorldsList() {
     const btn = row.querySelector('button');
     if (unlocked) {
       btn.addEventListener('click', () => {
-        const target = progress.unlockAll ? w.range[0] : Math.max(w.range[0], progress.currentLevel);
+        const target = progress.unlockAll
+          ? Math.max(w.range[0], progress.currentLevel)
+          : Math.max(w.range[0], progress.currentLevel);
         selectLevel(target);
       });
     }
@@ -594,12 +640,12 @@ function renderWorldsList() {
 
 function selectLevel(lvl) {
   const clamped = Math.max(1, Math.min(TOTAL_LEVELS, Math.floor(lvl)));
-  const currentWorldStart = Math.floor((progress.maxUnlocked - 1) / 10) * 10 + 1;
-  const minAllowed = progress.unlockAll ? 1 : currentWorldStart;
+  const currentWorldStart = Math.floor((progress.maxUnlocked - 1) / 100) * 100 + 1;
+  const minAllowed = Math.max(currentWorldStart, progress.currentLevel); // Only forward!
   const maxAllowed = progress.unlockAll ? TOTAL_LEVELS : progress.maxUnlocked;
 
   if (clamped < minAllowed) {
-    showToast(`אי אפשר לחזור לעולם שכבר עברת — אתה בעולם הנוכחי (משלב ${currentWorldStart})`, false);
+    showToast(`אי אפשר לחזור אחורה — ממשיכים קדימה משלב ${minAllowed}`, false);
     return;
   }
   if (clamped > maxAllowed) {
@@ -607,6 +653,9 @@ function selectLevel(lvl) {
     return;
   }
   progress.currentLevel = clamped;
+  if (clamped > progress.maxUnlocked) {
+    progress.maxUnlocked = clamped;
+  }
   saveProgress(progress);
   updateStartModalSavedText();
   modalLevels.close();
@@ -616,9 +665,9 @@ function selectLevel(lvl) {
 
 btnLevels.addEventListener('click', () => {
   game.setPlaying(false);
-  const currentWorldStart = Math.floor((progress.maxUnlocked - 1) / 10) * 10 + 1;
+  const currentWorldStart = Math.floor((progress.maxUnlocked - 1) / 100) * 100 + 1;
   inputLevelJump.value = String(game.config.level);
-  inputLevelJump.min = String(progress.unlockAll ? 1 : currentWorldStart);
+  inputLevelJump.min = String(progress.unlockAll ? progress.currentLevel : currentWorldStart);
   inputLevelJump.max = String(progress.unlockAll ? TOTAL_LEVELS : progress.maxUnlocked);
   renderWorldsList();
   modalLevels.showModal();
@@ -640,8 +689,8 @@ btnJumpGo.addEventListener('click', () => {
 chkUnlockAll.addEventListener('change', () => {
   progress.unlockAll = chkUnlockAll.checked;
   saveProgress(progress);
-  const currentWorldStart = Math.floor((progress.maxUnlocked - 1) / 10) * 10 + 1;
-  inputLevelJump.min = String(progress.unlockAll ? 1 : currentWorldStart);
+  const currentWorldStart = Math.floor((progress.maxUnlocked - 1) / 100) * 100 + 1;
+  inputLevelJump.min = String(progress.unlockAll ? progress.currentLevel : currentWorldStart);
   inputLevelJump.max = String(progress.unlockAll ? TOTAL_LEVELS : progress.maxUnlocked);
   renderWorldsList();
 });
