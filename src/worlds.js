@@ -339,13 +339,13 @@ export function generateLevelConfig(level, difficultyId = 'easy') {
     });
   }
 
-  // Fire Fences (גדרות אש) — +2 extra Fire Fences as impassable obstacles to weave around!
+  // Fire Fences (גדרות אש) — exactly 2 impassable Fire Fences in the path!
   const fireFences = [];
-  const fenceCount = lvl < 15 ? 3 : lvl < 120 ? 4 : 5;
+  const fenceCount = 2;
   for (let i = 0; i < fenceCount; i++) {
-    const fy = 0.46 + (i / Math.max(1, fenceCount - 1)) * 0.27;
+    const fy = 0.51 + i * 0.16;
     const onLeft = (i + lvl) % 2 === 0;
-    const width = 0.21 + Math.min(0.12, p * 0.12);
+    const width = 0.22 + Math.min(0.12, p * 0.12);
     const x1 = onLeft ? 0.08 : 0.92 - width;
     const x2 = x1 + width;
     fireFences.push({ x1, x2, y: fy, thickness: 0.017 });

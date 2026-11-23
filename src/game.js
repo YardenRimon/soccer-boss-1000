@@ -102,6 +102,8 @@ export class SoccerBossGame {
     this.queenRainSlowTimer = 0;
     this.bossRainSlowTimer = 0;
     this.queenEaten = false;
+    this.queenBroken = false;
+    this.queenRespawnTimer = 0;
     this.turboTimer = 0;
 
     // Guns & Special Abilities
@@ -285,6 +287,8 @@ export class SoccerBossGame {
     this.queenRainSlowTimer = 0;
     this.bossRainSlowTimer = 0;
     this.queenEaten = false;
+    this.queenBroken = false;
+    this.queenRespawnTimer = 0;
     this.turboTimer = 0;
     this.invulnTimer = 0;
 
@@ -667,14 +671,15 @@ export class SoccerBossGame {
     return Math.max(1, Math.round(baseAmount * diffMult * magnetMult * armorMult));
   }
 
-  _triggerWin(skipWorld = false) {
+  _triggerWin(skipWorlds = 0) {
     this.state = 'won';
     sound.win();
     this.shakeTime = 0.3;
     this.shakeMag = 6;
     this._spawnConfetti();
 
-    const baseClear = (skipWorld ? 35 : 15) + Math.min(35, this.config.level * 2);
+    const effectiveSkipWorlds = skipWorlds > 0 ? skipWorlds : this.queenBroken ? 2 : 0;
+    const baseClear = (effectiveSkipWorlds > 0 ? 35 : 15) + Math.min(35, this.config.level * 2);
     const speedBonus = this.levelTime < 12 ? 10 : 0;
     const clearReward = this._calcCoinAmount(baseClear + speedBonus);
     this.levelCoinsEarned += clearReward;
@@ -685,7 +690,7 @@ export class SoccerBossGame {
       time: this.levelTime,
       coinsEarned: this.levelCoinsEarned,
       giantScale: this.giantScale,
-      skipWorld,
+      skipWorlds: effectiveSkipWorlds,
       isFinale: this.config.isFinale,
     });
   }
@@ -773,6 +778,15 @@ export class SoccerBossGame {
     }
     if (this.bossRainSlowTimer > 0) {
       this.bossRainSlowTimer = Math.max(0, this.bossRainSlowTimer - dt);
+    }
+    if (this.queenEaten && this.queenRespawnTimer > 0) {
+      this.queenRespawnTimer = Math.max(0, this.queenRespawnTimer - dt);
+      if (this.queenRespawnTimer <= 0) {
+        this.queenEaten = false;
+        this.queen.x = this.player.x;
+        this._spawnParticles(this.queen.x, this.queen.y, '#c084fc', 14);
+        this._addFloatingText(this.queen.x, this.queen.y - 0.04, '👑 המלכה חזרה!', '#e879f9');
+      }
     }
     if (this.turboTimer > 0) {
       this.turboTimer = Math.max(0, this.turboTimer - dt);
@@ -1022,7 +1036,7 @@ export class SoccerBossGame {
         this._spawnParticles(this.boss.x, this.boss.y, '#f97316', 22);
         this.dragonRockets.splice(i, 1);
         this.callbacks.onToast?.('🐉🚀 טיל הדרקון פגע במלך! עוברים עולם!', true);
-        this._triggerWin(true);
+        this._triggerWin(1);
         return;
       }
 
@@ -1087,7 +1101,7 @@ export class SoccerBossGame {
         this._addFloatingText(this.boss.x, this.boss.y + 0.05, '🐉 הדרקון אכל את המלך! עולם הבא!', '#fde047');
         this.callbacks.onToast?.('🐉 הדרקונים אכלו את המלכה והמלך! עוברים עולם!', true);
         sound.dragon();
-        this._triggerWin(true);
+        this._triggerWin(1);
         return;
       }
     }
@@ -1135,7 +1149,7 @@ export class SoccerBossGame {
         this._addFloatingText(this.boss.x, this.boss.y + 0.04, '🚀 טיל פגע במלך! עולם הבא!', '#fde047');
         this.callbacks.onToast?.('🚀 טיל פגע במלך! עוברים לעולם הבא!', true);
         this.divingRockets.splice(i, 1);
-        this._triggerWin(true);
+        this._triggerWin(1);
         return;
       }
 
@@ -1500,16 +1514,20 @@ export class SoccerBossGame {
         continue;
       }
 
-      // Queen block check (pierceQueen balls like Fire Gun & Ghost Gun pass straight through!)
-      if (!this.queenEaten && b.vy < 0 && this.queenFreezeTimer <= 0 && this.queenConfuseTimer <= 0 && !b.pierceQueen) {
+      // Balls shatter/break the Queen on impact (she respawns shortly after so you can break her again & again!)
+      if (!this.queenEaten && b.vy < 0) {
         const dq = this._distAspect(b.x, b.y, this.queen.x, this.queen.y);
-        if (dq < b.r + this.queen.r * 0.9) {
-          this.queen.blockFlash = 0.2;
-          sound.queenBlock();
-          this._spawnParticles(b.x, b.y, '#e879f9', 10);
-          this._addFloatingText(this.queen.x, this.queen.y - 0.04, 'נחסם! 👑', '#f0abfc');
-          this.balls.splice(i, 1);
-          continue;
+        if (dq < b.r + this.queen.r * 0.95) {
+          this.queenBroken = true;
+          this.queenEaten = true;
+          this.queenRespawnTimer = 2.0;
+          this.shakeTime = 0.22;
+          this.shakeMag = 7;
+          sound.shieldBreak();
+          this._spawnParticles(this.queen.x, this.queen.y, '#e879f9', 26);
+          this._spawnParticles(this.queen.x, this.queen.y, '#fde047', 14);
+          this._addFloatingText(this.queen.x, this.queen.y - 0.04, '💥 המלכה נשברה! (+2 עולמות בניצחון)', '#f0abfc');
+          this.callbacks.onToast?.('💥 הכדור שבר את המלכה! ניצחון יעביר 2 עולמות!', true);
         }
       }
 

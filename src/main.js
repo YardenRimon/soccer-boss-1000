@@ -317,9 +317,10 @@ const game = new SoccerBossGame(canvas, {
   onFirstInput: () => {
     touchHint.classList.add('hidden');
   },
-  onWin: ({ level, time, coinsEarned, giantScale, skipWorld, isFinale }) => {
-    const nextWorldStart = Math.min(TOTAL_LEVELS, Math.floor((level - 1) / 100) * 100 + 101);
-    const nextLvl = skipWorld ? nextWorldStart : Math.min(TOTAL_LEVELS, level + 1);
+  onWin: ({ level, time, coinsEarned, giantScale, skipWorlds, isFinale }) => {
+    const worldAdvance = skipWorlds > 0 ? skipWorlds : 0;
+    const nextWorldStart = Math.min(TOTAL_LEVELS, Math.floor((level - 1) / 100) * 100 + 1 + worldAdvance * 100);
+    const nextLvl = worldAdvance > 0 ? nextWorldStart : Math.min(TOTAL_LEVELS, level + 1);
     const targetLevel = Math.max(progress.maxUnlocked, progress.currentLevel, nextLvl);
 
     if (targetLevel > progress.maxUnlocked) {
@@ -340,7 +341,12 @@ const game = new SoccerBossGame(canvas, {
       winTitle.textContent = 'אלוף 1,000 השלבים!';
       winDesc.textContent = 'הבסת את המלך והמלכה בגמר הגדול!';
       btnNextLevel.textContent = 'שחק שוב מהתחלה ⚽';
-    } else if (skipWorld) {
+    } else if (worldAdvance >= 2) {
+      winIcon.textContent = '💥🌟🏆';
+      winTitle.textContent = 'שברת את המלכה! קפיצת 2 עולמות!';
+      winDesc.textContent = `עוברים שני עולמות קדימה — שלב ${pendingNextLevel}! 🚀`;
+      btnNextLevel.textContent = `לשלב ${pendingNextLevel} 🚀`;
+    } else if (worldAdvance === 1) {
       winIcon.textContent = '🚀🌟🏆';
       winTitle.textContent = 'עוברים לעולם הבא!';
       winDesc.textContent = `קפצת ישר לשלב ${pendingNextLevel}! 🚀`;
