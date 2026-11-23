@@ -340,14 +340,14 @@ body {
   pointer-events: auto;
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 5px;
 }
 
 .special-btn {
   position: relative;
-  width: 60px;
-  height: 60px;
-  border-radius: 16px;
+  width: 48px;
+  height: 54px;
+  border-radius: 14px;
   border: 2px solid rgba(255, 255, 255, 0.55);
   color: #fff;
   display: flex;
@@ -385,13 +385,23 @@ body {
   border-color: #e9d5ff;
 }
 
+.gun-spear {
+  background: linear-gradient(145deg, rgba(234, 179, 8, 0.95), rgba(161, 98, 7, 0.95));
+  border-color: #fef08a;
+}
+
+.gun-dragon {
+  background: linear-gradient(145deg, rgba(16, 185, 129, 0.95), rgba(4, 120, 87, 0.95));
+  border-color: #6ee7b7;
+}
+
 .sp-emoji {
-  font-size: 1.25rem;
+  font-size: 1.12rem;
   line-height: 1;
 }
 
 .sp-label {
-  font-size: 0.62rem;
+  font-size: 0.56rem;
   font-weight: 800;
   line-height: 1;
 }
@@ -399,15 +409,15 @@ body {
 .sp-badge {
   position: absolute;
   top: -6px;
-  left: -6px;
-  min-width: 22px;
-  height: 20px;
-  padding: 0 5px;
+  left: -5px;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 4px;
   border-radius: 999px;
   background: #0f172a;
   border: 1.5px solid #fde047;
   color: #fde047;
-  font-size: 0.66rem;
+  font-size: 0.6rem;
   font-weight: 800;
   display: grid;
   place-items: center;
@@ -415,8 +425,9 @@ body {
 
 .shoot-btn {
   pointer-events: auto;
-  width: 72px;
-  height: 72px;
+  width: 66px;
+  height: 66px;
+  flex-shrink: 0;
   border-radius: 50%;
   border: 3px solid rgba(255, 255, 255, 0.85);
   background: radial-gradient(circle at 30% 30%, #4ade80, #16a34a 70%, #14532d 100%);

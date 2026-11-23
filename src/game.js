@@ -5,6 +5,7 @@ const POWERUP_TYPES = [
   { id: 'fire', emoji: '🔥', label: 'תחמושת רובה אש (+2)', color: '#f97316' },
   { id: 'ghost', emoji: '👻', label: 'תחמושת רובה רפאים (+2)', color: '#38bdf8' },
   { id: 'confuse', emoji: '🌀', label: 'מבלבל מלך ומלכה!', color: '#a855f7' },
+  { id: 'dragon', emoji: '🐉', label: 'זימון דרקונים!', color: '#10b981' },
   { id: 'freeze', emoji: '❄️', label: 'מלכה קפואה', color: '#67e8f9' },
   { id: 'turbo', emoji: '⚡', label: 'טורבו + ירי מהיר', color: '#facc15' },
 ];
@@ -64,8 +65,12 @@ export class SoccerBossGame {
     this.helpers = [];
     this.kingRockets = [];
     this.divingRockets = [];
+    this.dragons = [];
+    this.dragonRockets = [];
+    this.tailWhipArcs = [];
     this.coins = [];
     this.balls = [];
+    this.spears = [];
     this.hazards = [];
     this.powerups = [];
     this.decoys = [];
@@ -85,11 +90,15 @@ export class SoccerBossGame {
     this.powerupTimer = 4.0;
     this.coinSpawnTimer = 3.2;
     this.rocketDiveTimer = 7.5;
+    this.rainInterfereTimer = 4.2;
     this.ballCooldown = 0;
     this.queenFreezeTimer = 0;
     this.queenConfuseTimer = 0;
     this.bossConfuseTimer = 0;
     this.bossPitTimer = 0;
+    this.queenRainSlowTimer = 0;
+    this.bossRainSlowTimer = 0;
+    this.queenEaten = false;
     this.turboTimer = 0;
 
     // Guns & Special Abilities
@@ -98,6 +107,9 @@ export class SoccerBossGame {
     this.ghostMaxShots = 3;
     this.ghostRechargeTimer = 0;
     this.confuseCooldown = 0;
+    this.dragonCooldown = 0;
+    this.spearCooldown = 0;
+    this.spearCooldown = 0;
     this.gunRecoilFire = 0;
     this.gunRecoilGhost = 0;
 
@@ -167,9 +179,10 @@ export class SoccerBossGame {
       y: 0.81, // Positioned clearly above mobile controls bar
       vx: 0,
       vy: 0,
-      r: 0.036,
+      r: 0.041, // Harry Potter is the tallest!
       ballSpin: 0,
       hasBall: true,
+      kickTimer: 0,
     };
 
     this.boss = {
@@ -195,13 +208,26 @@ export class SoccerBossGame {
 
     this.playerCones = this.config.playerCones.map((c) => ({ ...c }));
     this.queenCones = this.config.queenCones.map((c) => ({ ...c }));
+    this.fireFences = this.config.fireFences.map((f) => ({ ...f }));
     this.kingPits = this.config.kingPits.map((p) => ({ ...p }));
     this.coins = this.config.initialCoins.map((c) => ({ ...c }));
     this.defenders = this.config.movingDefenders.map((d) => ({ ...d }));
 
-    // 2 Friendly Helpers on the sides: Ron (left) & Hermione (right), with Harry Potter in the center!
+    // 2 Friendly Helpers on the sides: Ron (2nd tallest) & Hermione (shortest), with Harry Potter tallest in the center!
     this.helpers = [
-      { id: 'ron', label: 'רון', x: 0.16, y: 0.68, baseX: 0.16, baseY: 0.68, r: 0.03, shootTimer: 5.2, phase: 0 },
+      {
+        id: 'ron',
+        label: 'רון',
+        x: 0.16,
+        y: 0.68,
+        baseX: 0.16,
+        baseY: 0.68,
+        r: 0.032,
+        shootTimer: 5.2,
+        spearTimer: 6.4,
+        phase: 0,
+        kickTimer: 0,
+      },
       {
         id: 'hermione',
         label: 'הרמיוני',
@@ -209,9 +235,11 @@ export class SoccerBossGame {
         y: 0.68,
         baseX: 0.84,
         baseY: 0.68,
-        r: 0.03,
+        r: 0.025,
         shootTimer: 7.4,
+        spearTimer: 8.6,
         phase: Math.PI,
+        kickTimer: 0,
       },
     ];
 
@@ -222,8 +250,12 @@ export class SoccerBossGame {
       { x: 0.75, y: 0.036, vx: 0.14 },
     ];
     this.divingRockets = [];
+    this.dragons = [];
+    this.dragonRockets = [];
+    this.tailWhipArcs = [];
 
     this.balls = [];
+    this.spears = [];
     this.hazards = [];
     this.powerups = [];
     this.decoys = [];
@@ -238,11 +270,15 @@ export class SoccerBossGame {
     this.powerupTimer = 3.2;
     this.coinSpawnTimer = 3.8;
     this.rocketDiveTimer = 7.5;
+    this.rainInterfereTimer = 3.8;
     this.ballCooldown = 0;
     this.queenFreezeTimer = 0;
     this.queenConfuseTimer = 0;
     this.bossConfuseTimer = 0;
     this.bossPitTimer = 0;
+    this.queenRainSlowTimer = 0;
+    this.bossRainSlowTimer = 0;
+    this.queenEaten = false;
     this.turboTimer = 0;
     this.invulnTimer = 0;
 
@@ -252,6 +288,8 @@ export class SoccerBossGame {
     this.ghostShotsLeft = 2 + (this.upgrades.ghostGun || 0);
     this.ghostRechargeTimer = 0;
     this.confuseCooldown = 0;
+    this.dragonCooldown = 0;
+    this.spearCooldown = 0;
     this.gunRecoilFire = 0;
     this.gunRecoilGhost = 0;
 
@@ -350,6 +388,7 @@ export class SoccerBossGame {
     });
 
     this.player.hasBall = false;
+    this.player.kickTimer = 0.22;
     const baseCooldown = this.turboTimer > 0 ? 0.14 : 0.32;
     this.ballCooldown = Math.max(0.11, baseCooldown * (1 - shotLevel * 0.09));
     sound.kick(false);
@@ -488,6 +527,82 @@ export class SoccerBossGame {
     this._syncHud();
   }
 
+  // Special Button #4: Summon Dragons (immune to balls, fire rockets, Tail Whip, eat Queen & King -> skip to next world!)
+  summonDragons(freePickup = false) {
+    if (this.state !== 'playing') return;
+    if (!freePickup && this.dragonCooldown > 0) {
+      this.callbacks.onToast?.(`הדרקון נח (${this.dragonCooldown.toFixed(1)}ש׳) 🐉`, false);
+      return;
+    }
+
+    if (!freePickup) {
+      this.dragonCooldown = 14.0;
+    }
+
+    // Spawn 2 fierce Dragons (immune to all balls!)
+    this.dragons.push(
+      {
+        id: 1,
+        x: 0.14,
+        y: 0.72,
+        r: 0.052,
+        target: 'queen',
+        rocketTimer: 0.35,
+        whipTimer: 0.55,
+        wingPhase: 0,
+      },
+      {
+        id: 2,
+        x: 0.86,
+        y: 0.72,
+        r: 0.052,
+        target: 'boss',
+        rocketTimer: 0.55,
+        whipTimer: 0.75,
+        wingPhase: Math.PI,
+      }
+    );
+
+    sound.dragon();
+    this.shakeTime = 0.25;
+    this.shakeMag = 6;
+    this._spawnParticles(0.14, 0.72, '#10b981', 16);
+    this._spawnParticles(0.86, 0.72, '#f97316', 16);
+    this._addFloatingText(0.5, 0.55, '🐉 דרקונים! טילים והצלפת זנב!', '#34d399');
+    this.callbacks.onToast?.('🐉 הדרקונים טסים לאכול את המלכה והמלך!', true);
+    this._syncHud();
+  }
+
+  // Throw Spear (Harry Potter, Ron, or Hermione throw fast spears at Queen & King!)
+  throwSpear(thrower = 'הארי', fromX = this.player.x, fromY = this.player.y - this.player.r, free = false) {
+    if (this.state !== 'playing') return;
+    if (!free && this.spearCooldown > 0) {
+      this.callbacks.onToast?.(`החנית נטענת (${this.spearCooldown.toFixed(1)}ש׳) 🔱`, false);
+      return;
+    }
+    if (!free) {
+      this.spearCooldown = 4.2;
+      this.player.kickTimer = 0.2;
+    }
+
+    const dx = this.boss.x - fromX;
+    const dy = this.boss.y - fromY;
+    const dist = Math.hypot(dx, dy) || 0.001;
+    const spd = 1.48;
+    this.spears.push({
+      x: fromX,
+      y: fromY,
+      vx: (dx / dist) * spd,
+      vy: (dy / dist) * spd,
+      r: 0.02,
+      thrower,
+    });
+    sound.kick(true);
+    this._spawnParticles(fromX, fromY, '#fde047', 8);
+    this._addFloatingText(fromX, fromY - 0.03, `🔱 ${thrower} הטיל חנית!`, '#fde047');
+    this._syncHud();
+  }
+
   _consumeProtectionOrFail(reason, onSaved) {
     if (this.invulnTimer > 0) return false;
 
@@ -585,6 +700,8 @@ export class SoccerBossGame {
       ghostMaxShots: this.ghostMaxShots,
       ghostProgress: this.ghostShotsLeft < this.ghostMaxShots ? this.ghostRechargeTimer / ghostInterval : 0,
       confuseCooldown: this.confuseCooldown,
+      dragonCooldown: this.dragonCooldown,
+      spearCooldown: this.spearCooldown,
       shieldsLeft: this.shieldsLeft,
       goldenArmorLeft: this.goldenArmorLeft,
       giantScale: this.giantScale,
@@ -628,6 +745,7 @@ export class SoccerBossGame {
     this.levelTime += dt;
 
     if (this.invulnTimer > 0) this.invulnTimer = Math.max(0, this.invulnTimer - dt);
+    if (this.player.kickTimer > 0) this.player.kickTimer = Math.max(0, this.player.kickTimer - dt);
     if (this.gunRecoilFire > 0) this.gunRecoilFire = Math.max(0, this.gunRecoilFire - dt);
     if (this.gunRecoilGhost > 0) this.gunRecoilGhost = Math.max(0, this.gunRecoilGhost - dt);
 
@@ -644,6 +762,12 @@ export class SoccerBossGame {
       this.bossConfuseTimer = Math.max(0, this.bossConfuseTimer - dt);
       hudDirty = true;
     }
+    if (this.queenRainSlowTimer > 0) {
+      this.queenRainSlowTimer = Math.max(0, this.queenRainSlowTimer - dt);
+    }
+    if (this.bossRainSlowTimer > 0) {
+      this.bossRainSlowTimer = Math.max(0, this.bossRainSlowTimer - dt);
+    }
     if (this.turboTimer > 0) {
       this.turboTimer = Math.max(0, this.turboTimer - dt);
       hudDirty = true;
@@ -651,6 +775,26 @@ export class SoccerBossGame {
     if (this.confuseCooldown > 0) {
       this.confuseCooldown = Math.max(0, this.confuseCooldown - dt);
       hudDirty = true;
+    }
+    if (this.dragonCooldown > 0) {
+      this.dragonCooldown = Math.max(0, this.dragonCooldown - dt);
+      hudDirty = true;
+    }
+    if (this.spearCooldown > 0) {
+      this.spearCooldown = Math.max(0, this.spearCooldown - dt);
+      hudDirty = true;
+    }
+
+    // Morning rain actively interferes with Queen & King!
+    this.rainInterfereTimer -= dt;
+    if (this.rainInterfereTimer <= 0) {
+      this.rainInterfereTimer = 4.2;
+      this.queenRainSlowTimer = 2.1;
+      this.bossRainSlowTimer = 2.1;
+      this._spawnParticles(this.queen.x, this.queen.y, '#93c5fd', 10);
+      this._spawnParticles(this.boss.x, this.boss.y, '#93c5fd', 10);
+      this._addFloatingText(this.queen.x, this.queen.y - 0.04, '🌧️ הגשם מפריע למלכה!', '#bae6fd');
+      this._addFloatingText(this.boss.x, this.boss.y + 0.04, '🌧️ הגשם מפריע למלך!', '#bae6fd');
     }
 
     // Ghost Gun auto-recharge
@@ -676,9 +820,11 @@ export class SoccerBossGame {
     this._updatePlayer(dt);
     this._updateQueen(dt);
     this._updateBoss(dt);
+    this._updateDragons(dt);
     this._updateRockets(dt);
     this._updateDefenders(dt);
     this._updateBalls(dt);
+    this._updateSpears(dt);
     this._updateHazards(dt);
     this._updatePowerups(dt);
     this._updateCoins(dt);
@@ -688,6 +834,7 @@ export class SoccerBossGame {
 
   _updateHelpers(dt) {
     for (const h of this.helpers) {
+      if (h.kickTimer > 0) h.kickTimer = Math.max(0, h.kickTimer - dt);
       h.phase += dt * 3.2;
       h.x = h.baseX + Math.sin(h.phase) * 0.045;
       h.y = h.baseY + Math.cos(h.phase * 1.3) * 0.045;
@@ -697,15 +844,16 @@ export class SoccerBossGame {
         const hz = this.hazards[i];
         if (this._distAspect(h.x, h.y, hz.x, hz.y) < (h.r + hz.r) * 1.45) {
           this._spawnParticles(hz.x, hz.y, '#60a5fa', 10);
-          this._addFloatingText(h.x, h.y - 0.03, '🤝 עוזר חסם!', '#93c5fd');
+          this._addFloatingText(h.x, h.y - 0.03, `${h.label} חסם!`, '#93c5fd');
           this.hazards.splice(i, 1);
         }
       }
 
-      // Periodically fire a helper assist ball toward the King
+      // Ron & Hermione kick assist balls toward the King!
       h.shootTimer -= dt;
       if (h.shootTimer <= 0) {
-        h.shootTimer = 5.8;
+        h.shootTimer = 5.6;
+        h.kickTimer = 0.24;
         const aimVx = (this.boss.x - h.x) * 0.55;
         this.balls.push({
           x: h.x,
@@ -719,7 +867,145 @@ export class SoccerBossGame {
           spin: 0,
         });
         sound.kick(false);
-        this._spawnParticles(h.x, h.y - 0.02, '#60a5fa', 6);
+        this._spawnParticles(h.x, h.y - 0.02, '#60a5fa', 7);
+        this._addFloatingText(h.x, h.y - 0.04, `${h.label} בעט! ⚽`, '#93c5fd');
+      }
+
+      // Ron & Hermione also throw spears at Queen & King!
+      h.spearTimer -= dt;
+      if (h.spearTimer <= 0) {
+        h.spearTimer = 7.2;
+        h.kickTimer = 0.22;
+        this.throwSpear(h.label, h.x, h.y - h.r, true);
+      }
+    }
+  }
+
+  _updateSpears(dt) {
+    for (let i = this.spears.length - 1; i >= 0; i--) {
+      const s = this.spears[i];
+      s.x += s.vx * dt;
+      s.y += s.vy * dt;
+      this._spawnParticles(s.x, s.y, '#fef08a', 1);
+
+      // Spear stuns Queen briefly if it passes her
+      if (!this.queenEaten && this._distAspect(s.x, s.y, this.queen.x, this.queen.y) < s.r + this.queen.r) {
+        this.queenConfuseTimer = Math.max(this.queenConfuseTimer, 1.8);
+        this._spawnParticles(this.queen.x, this.queen.y, '#fde047', 12);
+        this._addFloatingText(this.queen.x, this.queen.y - 0.04, '🔱 פגיעת חנית!', '#fde047');
+      }
+
+      // Spear hits the King -> counts as a Boss hit & grows Harry!
+      if (this._distAspect(s.x, s.y, this.boss.x, this.boss.y) < s.r + this.boss.r * 1.1) {
+        this.boss.hp = Math.max(0, this.boss.hp - 1);
+        this.boss.hitFlash = 0.22;
+        sound.bossHit(true);
+        this._spawnParticles(this.boss.x, this.boss.y, '#fde047', 20);
+        this.giantScale = Math.min(1.65, Number((this.giantScale + 0.16).toFixed(2)));
+        this.callbacks.onGiantScaleChange?.(this.giantScale);
+        this.spears.splice(i, 1);
+        this._syncHud();
+
+        if (this.boss.hp <= 0) {
+          this._triggerWin(false);
+          return;
+        }
+        continue;
+      }
+
+      if (s.y < -0.05 || s.y > 1.05 || s.x < -0.05 || s.x > 1.05) {
+        this.spears.splice(i, 1);
+      }
+    }
+  }
+
+  _updateDragons(dt) {
+    // Update Dragon Rockets (fired by Dragons at Queen & King!)
+    for (let i = this.dragonRockets.length - 1; i >= 0; i--) {
+      const dr = this.dragonRockets[i];
+      dr.x += dr.vx * dt;
+      dr.y += dr.vy * dt;
+      this._spawnParticles(dr.x, dr.y, '#f97316', 1);
+
+      if (!this.queenEaten && this._distAspect(dr.x, dr.y, this.queen.x, this.queen.y) < dr.r + this.queen.r) {
+        this.queenFreezeTimer = Math.max(this.queenFreezeTimer, 1.5);
+        this._spawnParticles(this.queen.x, this.queen.y, '#f97316', 16);
+        this._addFloatingText(this.queen.x, this.queen.y - 0.04, '🚀 טיל דרקון!', '#fb923c');
+        this.dragonRockets.splice(i, 1);
+        continue;
+      }
+
+      if (this._distAspect(dr.x, dr.y, this.boss.x, this.boss.y) < dr.r + this.boss.r) {
+        this._spawnParticles(this.boss.x, this.boss.y, '#f97316', 22);
+        this.dragonRockets.splice(i, 1);
+        this.callbacks.onToast?.('🐉🚀 טיל הדרקון פגע במלך! עוברים עולם!', true);
+        this._triggerWin(true);
+        return;
+      }
+
+      if (dr.y < -0.05 || dr.y > 1.05 || dr.x < -0.05 || dr.x > 1.05) {
+        this.dragonRockets.splice(i, 1);
+      }
+    }
+
+    // Update Tail Whip Arcs
+    for (let i = this.tailWhipArcs.length - 1; i >= 0; i--) {
+      this.tailWhipArcs[i].life -= dt;
+      if (this.tailWhipArcs[i].life <= 0) this.tailWhipArcs.splice(i, 1);
+    }
+
+    // Update Dragons swooping in (completely immune to all balls!)
+    for (const d of this.dragons) {
+      d.wingPhase += dt * 12;
+      const targetPos = d.target === 'queen' && !this.queenEaten ? this.queen : this.boss;
+      const dx = targetPos.x - d.x;
+      const dy = targetPos.y - d.y;
+      const dist = Math.hypot(dx, dy) || 0.001;
+      const flySpeed = 0.34;
+      d.x += (dx / dist) * flySpeed * dt;
+      d.y += (dy / dist) * flySpeed * dt;
+
+      // Dragons shoot missiles!
+      d.rocketTimer -= dt;
+      if (d.rocketTimer <= 0) {
+        d.rocketTimer = 1.1;
+        this.dragonRockets.push({
+          x: d.x,
+          y: d.y - 0.02,
+          vx: (dx / dist) * 0.62,
+          vy: (dy / dist) * 0.62,
+          r: 0.024,
+        });
+        sound.rocket();
+      }
+
+      // Dragons perform Tail Whip!
+      d.whipTimer -= dt;
+      if (d.whipTimer <= 0 && dist < 0.22) {
+        d.whipTimer = 1.3;
+        this.tailWhipArcs.push({ x: d.x, y: d.y, r: 0.095, life: 0.28, maxLife: 0.28 });
+        this._addFloatingText(d.x, d.y + 0.04, '💥 הצלפת זנב!', '#34d399');
+        this.shakeTime = 0.14;
+        this.shakeMag = 5;
+      }
+
+      // Eat the Queen!
+      if (!this.queenEaten && this._distAspect(d.x, d.y, this.queen.x, this.queen.y) < d.r + this.queen.r * 0.8) {
+        this.queenEaten = true;
+        this._spawnParticles(this.queen.x, this.queen.y, '#e879f9', 26);
+        this._addFloatingText(this.queen.x, this.queen.y - 0.04, '🐉 הדרקון אכל את המלכה!', '#34d399');
+        sound.dragon();
+        d.target = 'boss';
+      }
+
+      // Eat the King -> Advance to Next World!
+      if (this._distAspect(d.x, d.y, this.boss.x, this.boss.y) < d.r + this.boss.r * 0.9) {
+        this._spawnParticles(this.boss.x, this.boss.y, '#facc15', 32);
+        this._addFloatingText(this.boss.x, this.boss.y + 0.05, '🐉 הדרקון אכל את המלך! עולם הבא!', '#fde047');
+        this.callbacks.onToast?.('🐉 הדרקונים אכלו את המלכה והמלך! עוברים עולם!', true);
+        sound.dragon();
+        this._triggerWin(true);
+        return;
       }
     }
   }
@@ -914,8 +1200,20 @@ export class SoccerBossGame {
       }
     }
 
+    // Fire Fences collision (makes dribbling harder for the player!)
+    for (const fence of this.fireFences) {
+      const closestX = Math.max(fence.x1, Math.min(this.player.x, fence.x2));
+      const dist = this._distAspect(this.player.x, this.player.y, closestX, fence.y);
+      if (dist < this.player.r * 0.72 + fence.thickness * 0.85) {
+        this._consumeProtectionOrFail('נשרפת בגדר האש! מתחילים מחדש 🔥', () => {
+          this.player.y = Math.min(0.85, this.player.y + 0.07);
+        });
+        return;
+      }
+    }
+
     const distQueen = this._distAspect(this.player.x, this.player.y, this.queen.x, this.queen.y);
-    if (distQueen < (this.player.r + this.queen.r) * 0.82 && this.queenConfuseTimer <= 0) {
+    if (!this.queenEaten && distQueen < (this.player.r + this.queen.r) * 0.82 && this.queenConfuseTimer <= 0) {
       this._consumeProtectionOrFail('המלכה חטפה לך את הכדור! 👑', () => {
         this.player.y = Math.min(0.85, this.player.y + 0.08);
       });
@@ -924,6 +1222,7 @@ export class SoccerBossGame {
   }
 
   _updateQueen(dt) {
+    if (this.queenEaten) return;
     if (this.queen.blockFlash > 0) {
       this.queen.blockFlash = Math.max(0, this.queen.blockFlash - dt);
     }
@@ -933,7 +1232,9 @@ export class SoccerBossGame {
     }
 
     const rageMult = 1 + (this.boss.maxHp - this.boss.hp) * 0.07;
-    const maxSpd = this.config.queenSpeed * rageMult;
+    // Rain actively slows down/interferes with the Queen!
+    const rainMult = this.queenRainSlowTimer > 0 ? 0.62 : 0.82;
+    const maxSpd = this.config.queenSpeed * rageMult * rainMult;
 
     let targetX = this.player.x;
     if (this.queenConfuseTimer > 0) {
@@ -1012,7 +1313,9 @@ export class SoccerBossGame {
     }
 
     const rageMult = 1 + (this.boss.maxHp - this.boss.hp) * 0.09;
-    const speed = this.config.bossSpeed * rageMult;
+    // Rain actively interferes with the King!
+    const rainMult = this.bossRainSlowTimer > 0 ? 0.65 : 0.84;
+    const speed = this.config.bossSpeed * rageMult * rainMult;
 
     if (this.bossConfuseTimer > 0) {
       // Confused King wobbles unpredictably and forgets how to dodge!
@@ -1114,7 +1417,7 @@ export class SoccerBossGame {
       }
 
       // Queen block check (pierceQueen balls like Fire Gun & Ghost Gun pass straight through!)
-      if (b.vy < 0 && this.queenFreezeTimer <= 0 && this.queenConfuseTimer <= 0 && !b.pierceQueen) {
+      if (!this.queenEaten && b.vy < 0 && this.queenFreezeTimer <= 0 && this.queenConfuseTimer <= 0 && !b.pierceQueen) {
         const dq = this._distAspect(b.x, b.y, this.queen.x, this.queen.y);
         if (dq < b.r + this.queen.r * 0.9) {
           this.queen.blockFlash = 0.2;
@@ -1235,6 +1538,8 @@ export class SoccerBossGame {
           this.ghostShotsLeft = Math.min(this.ghostMaxShots + 2, this.ghostShotsLeft + 2);
         } else if (p.type.id === 'confuse') {
           this.triggerConfuse(true);
+        } else if (p.type.id === 'dragon') {
+          this.summonDragons(true);
         } else if (p.type.id === 'freeze') {
           this.queenFreezeTimer = 3.5;
         } else if (p.type.id === 'turbo') {
@@ -1473,6 +1778,11 @@ export class SoccerBossGame {
       this._drawCone(cone.x * W, cone.y * H, cone.r * W, world.coneColor, tod.shadowScale);
     }
 
+    // 9.5 Fire Fences (obstacles for Harry!)
+    for (const fence of this.fireFences) {
+      this._drawFireFence(fence.x1 * W, fence.x2 * W, fence.y * H, fence.thickness * W);
+    }
+
     // 10. Moving Defenders
     for (const d of this.defenders) {
       this._drawDefender(d.x * W, d.y * H, d.r * W);
@@ -1504,15 +1814,31 @@ export class SoccerBossGame {
     // 12. Boss (King)
     this._drawBoss(this.boss.x * W, this.boss.y * H, this.boss.r * W, world.bossColor, tod.shadowScale);
 
-    // 13. Boss Queen
-    this._drawQueen(this.queen.x * W, this.queen.y * H, this.queen.r * W, world.queenColor, tod.shadowScale);
+    // 13. Boss Queen (if not eaten by Dragons!)
+    if (!this.queenEaten) {
+      this._drawQueen(this.queen.x * W, this.queen.y * H, this.queen.r * W, world.queenColor, tod.shadowScale);
+    }
 
-    // 14. Player + Mounted Guns + Golden Armor + Dribble Ball
+    // 13.5 Dragons, Dragon Rockets & Tail Whip Arcs (immune to balls!)
+    for (const arc of this.tailWhipArcs) {
+      this._drawTailWhipArc(arc.x * W, arc.y * H, arc.r * W, arc.life / arc.maxLife);
+    }
+    for (const dr of this.dragonRockets) {
+      this._drawRocket(dr.x * W, dr.y * H, dr.r * W, true);
+    }
+    for (const d of this.dragons) {
+      this._drawDragon(d.x * W, d.y * H, d.r * W, d.wingPhase);
+    }
+
+    // 14. Player (Harry Potter) + Mounted Guns + Golden Armor + Dribble Ball
     this._drawPlayer(this.player.x * W, this.player.y * H, this.player.r * W * this.giantScale, tod.shadowScale);
 
-    // 15. Active Soccer & Blaster Balls
+    // 15. Active Soccer & Blaster Balls + Spears
     for (const b of this.balls) {
       this._drawSoccerBall(b.x * W, b.y * H, b.r * W, b.spin, b.kind);
+    }
+    for (const s of this.spears) {
+      this._drawSpear(s.x * W, s.y * H, s.vx, s.vy, W * 0.032);
     }
 
     // 16. Queen's Thrown Hazards
@@ -1676,6 +2002,19 @@ export class SoccerBossGame {
     ctx.arc(x + r * 0.24, y - r * 0.05, r * 0.09, 0, Math.PI * 2);
     ctx.fill();
 
+    // Kick animation leg for Ron & Hermione
+    if (helper.kickTimer > 0) {
+      ctx.save();
+      ctx.strokeStyle = '#facc15';
+      ctx.lineWidth = 3.5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(x, y - r * 0.6);
+      ctx.lineTo(x, y - r * 1.38);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     // Name tag above head
     ctx.font = '800 10px system-ui, sans-serif';
     ctx.textAlign = 'center';
@@ -1684,6 +2023,143 @@ export class SoccerBossGame {
     ctx.strokeText(helper.label, x, y - r - 6);
     ctx.fillStyle = isRon ? '#fed7aa' : '#fde68a';
     ctx.fillText(helper.label, x, y - r - 6);
+    ctx.restore();
+  }
+
+  _drawFireFence(x1, x2, y, thickness) {
+    const ctx = this.ctx;
+    ctx.save();
+    // Glowing fiery bar
+    const grad = ctx.createLinearGradient(x1, y - thickness, x1, y + thickness);
+    grad.addColorStop(0, '#fef08a');
+    grad.addColorStop(0.5, '#f97316');
+    grad.addColorStop(1, '#b91c1c');
+    ctx.fillStyle = grad;
+    ctx.strokeStyle = '#fde047';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(x1, y - thickness * 0.55, x2 - x1, thickness * 1.1, 6);
+    ctx.fill();
+    ctx.stroke();
+
+    // Flickering flame tongues along the fence
+    const flames = Math.max(4, Math.floor((x2 - x1) / 16));
+    for (let i = 0; i <= flames; i++) {
+      const fx = x1 + (i / flames) * (x2 - x1);
+      const fh = thickness * (1.2 + Math.sin(this.levelTime * 18 + i * 1.7) * 0.45);
+      ctx.fillStyle = i % 2 === 0 ? '#facc15' : '#fb923c';
+      ctx.beginPath();
+      ctx.moveTo(fx - 5, y);
+      ctx.lineTo(fx, y - fh);
+      ctx.lineTo(fx + 5, y);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  _drawDragon(x, y, r, wingPhase) {
+    const ctx = this.ctx;
+    const flap = Math.sin(wingPhase) * r * 0.48;
+    ctx.save();
+    ctx.translate(x, y);
+
+    // Immune Aura
+    ctx.strokeStyle = 'rgba(52, 211, 153, 0.55)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 1.3, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Dragon Wings
+    ctx.fillStyle = '#059669';
+    ctx.strokeStyle = '#a7f3d0';
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.3, 0);
+    ctx.lineTo(-r * 1.55, -r * 0.55 + flap);
+    ctx.lineTo(-r * 1.1, r * 0.35);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(r * 0.3, 0);
+    ctx.lineTo(r * 1.55, -r * 0.55 + flap);
+    ctx.lineTo(r * 1.1, r * 0.35);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Dragon Tail
+    const tailWag = Math.cos(wingPhase * 0.8) * r * 0.35;
+    ctx.strokeStyle = '#047857';
+    ctx.lineWidth = 5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(0, r * 0.5);
+    ctx.quadraticCurveTo(tailWag, r * 1.15, tailWag * 1.4, r * 1.55);
+    ctx.stroke();
+
+    // Dragon Head & Body
+    ctx.fillStyle = '#10b981';
+    ctx.strokeStyle = '#fde047';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.72, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Dragon Eyes
+    ctx.fillStyle = '#fef08a';
+    ctx.beginPath();
+    ctx.arc(-r * 0.24, -r * 0.14, r * 0.14, 0, Math.PI * 2);
+    ctx.arc(r * 0.24, -r * 0.14, r * 0.14, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  _drawTailWhipArc(x, y, r, ratio) {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, ratio);
+    ctx.strokeStyle = '#34d399';
+    ctx.lineWidth = 7 * ratio;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.arc(x, y, r, -Math.PI * 0.85, -Math.PI * 0.15);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  _drawSpear(x, y, vx, vy, len) {
+    const ctx = this.ctx;
+    const ang = Math.atan2(vy, vx);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(ang);
+
+    // Shaft
+    ctx.strokeStyle = '#facc15';
+    ctx.lineWidth = 3.2;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-len, 0);
+    ctx.lineTo(len * 0.55, 0);
+    ctx.stroke();
+
+    // Spearhead
+    ctx.fillStyle = '#fef08a';
+    ctx.strokeStyle = '#ea580c';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(len * 0.95, 0);
+    ctx.lineTo(len * 0.42, -5.5);
+    ctx.lineTo(len * 0.42, 5.5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
     ctx.restore();
   }
 
@@ -1823,6 +2299,29 @@ export class SoccerBossGame {
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, W, H);
     }
+
+    // Twinkling Morning Stars across the sky!
+    ctx.save();
+    for (let i = 0; i < 14; i++) {
+      const sx = ((i * 73 + this.config.level * 19) % 94 + 3) * 0.01 * W;
+      const sy = ((i * 41 + this.config.level * 11) % 34 + 3) * 0.01 * H;
+      const twinkle = 0.35 + 0.55 * Math.abs(Math.sin(this.levelTime * 3.2 + i));
+      ctx.globalAlpha = twinkle;
+      ctx.fillStyle = '#fef08a';
+      ctx.beginPath();
+      ctx.arc(sx, sy, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+      // 4-point star sparkle
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(sx - 4, sy);
+      ctx.lineTo(sx + 4, sy);
+      ctx.moveTo(sx, sy - 4);
+      ctx.lineTo(sx, sy + 4);
+      ctx.stroke();
+    }
+    ctx.restore();
 
     if (tod.isNight) {
       ctx.globalCompositeOperation = 'screen';
@@ -2305,6 +2804,19 @@ export class SoccerBossGame {
     ctx.fillStyle = '#fef08a';
     ctx.fillText('הארי', x, y + r + 11);
 
+    // Harry Potter kick animation leg!
+    if (this.player.kickTimer > 0) {
+      ctx.save();
+      ctx.strokeStyle = '#facc15';
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(x, y - r * 0.65);
+      ctx.lineTo(x, y - r * 1.45);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     if (this.player.hasBall) {
       const ballR = r * 0.56;
       this._drawSoccerBall(x, y - r * 1.25, ballR, this.player.ballSpin, 'normal');
@@ -2399,6 +2911,12 @@ export class SoccerBossGame {
       } else if (e.code === 'Digit3' || e.code === 'KeyR') {
         sound.unlock();
         this.triggerConfuse();
+      } else if (e.code === 'Digit4' || e.code === 'KeyF') {
+        sound.unlock();
+        this.summonDragons();
+      } else if (e.code === 'Digit5' || e.code === 'KeyT') {
+        sound.unlock();
+        this.throwSpear();
       }
     });
 

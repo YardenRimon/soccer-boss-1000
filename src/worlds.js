@@ -119,64 +119,44 @@ export const PITCH_PATTERNS = ['stripes', 'checkered', 'circles', 'diagonal', 'v
 
 export const TIMES_OF_DAY = [
   {
-    id: 'night_storm',
-    clock: '22:30',
-    label: 'ליל סערה',
-    emoji: '⛈️🌙',
-    isNight: true,
-    ambientOverlay: 'rgba(6, 11, 28, 0.46)',
-    sunbeams: false,
-    shadowScale: 1.35,
-  },
-  {
-    id: 'dawn',
-    clock: '06:15',
-    label: 'זריחה',
+    id: 'early_morning',
+    clock: '06:30',
+    label: 'בוקר מוקדם',
     emoji: '🌅🌧️',
     isNight: false,
-    ambientOverlay: 'rgba(244, 114, 182, 0.16)',
+    ambientOverlay: 'rgba(253, 186, 116, 0.12)',
     sunbeams: true,
-    shadowScale: 1.25,
+    shadowScale: 1.2,
   },
   {
-    id: 'morning',
-    clock: '09:30',
-    label: 'בוקר',
+    id: 'morning_rain',
+    clock: '08:15',
+    label: 'בוקר גשום',
     emoji: '🌦️☀️',
     isNight: false,
-    ambientOverlay: 'rgba(253, 224, 71, 0.08)',
+    ambientOverlay: 'rgba(186, 230, 253, 0.10)',
+    sunbeams: true,
+    shadowScale: 1.0,
+  },
+  {
+    id: 'bright_morning',
+    clock: '09:45',
+    label: 'בוקר בהיר',
+    emoji: '☀️🌧️',
+    isNight: false,
+    ambientOverlay: 'rgba(254, 240, 138, 0.08)',
     sunbeams: true,
     shadowScale: 0.9,
   },
   {
-    id: 'noon',
-    clock: '13:00',
-    label: 'צהריים',
-    emoji: '☀️⚡',
+    id: 'late_morning',
+    clock: '11:20',
+    label: 'בוקר מאוחר',
+    emoji: '⛅⚡',
     isNight: false,
-    ambientOverlay: 'rgba(255, 255, 255, 0.05)',
+    ambientOverlay: 'rgba(224, 242, 254, 0.08)',
     sunbeams: true,
-    shadowScale: 0.7,
-  },
-  {
-    id: 'sunset',
-    clock: '18:45',
-    label: 'שקיעה',
-    emoji: '🌇⛈️',
-    isNight: false,
-    ambientOverlay: 'rgba(249, 115, 22, 0.22)',
-    sunbeams: false,
-    shadowScale: 1.4,
-  },
-  {
-    id: 'dusk',
-    clock: '20:15',
-    label: 'דמדומים',
-    emoji: '🌆⚡',
-    isNight: true,
-    ambientOverlay: 'rgba(49, 46, 129, 0.36)',
-    sunbeams: false,
-    shadowScale: 1.3,
+    shadowScale: 0.78,
   },
 ];
 
@@ -344,6 +324,19 @@ export function generateLevelConfig(level, difficultyId = 'easy') {
     });
   }
 
+  // Fire Fences (גדרות אש) as obstacles for the player to weave around!
+  const fireFences = [];
+  const fenceCount = lvl < 5 ? 1 : lvl < 35 ? 2 : 3;
+  for (let i = 0; i < fenceCount; i++) {
+    const fy = fenceCount === 1 ? 0.61 : 0.52 + i * 0.13;
+    // Place on left or right side leaving plenty of room to dribble around
+    const onLeft = (i + lvl) % 2 === 0;
+    const width = 0.22 + Math.min(0.14, p * 0.14);
+    const x1 = onLeft ? 0.08 : 0.92 - width;
+    const x2 = x1 + width;
+    fireFences.push({ x1, x2, y: fy, thickness: 0.018 });
+  }
+
   const minQueenShotLvl = diff.id === 'easy' ? 8 : diff.id === 'normal' ? 4 : 2;
 
   return {
@@ -360,6 +353,7 @@ export function generateLevelConfig(level, difficultyId = 'easy') {
     coneHitboxMult: diff.coneHitboxMult,
     queenCones,
     playerCones,
+    fireFences,
     kingPits,
     initialCoins,
     movingDefenders,

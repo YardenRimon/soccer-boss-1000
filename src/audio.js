@@ -80,6 +80,12 @@ class SoundEngine {
     this._tone(280, 95, 0.2, 'sine', 0.15, 0);
   }
 
+  dragon() {
+    this._tone(160, 70, 0.28, 'sawtooth', 0.18, 0);
+    this._tone(240, 95, 0.24, 'square', 0.12, 0.08);
+    this._tone(520, 880, 0.18, 'triangle', 0.14, 0.16);
+  }
+
   bossHit(isFire = false) {
     this._tone(isFire ? 420 : 320, 110, 0.18, 'square', 0.14);
     this._tone(660, 880, 0.12, 'sine', 0.12, 0.04);

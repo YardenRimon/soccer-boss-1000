@@ -105,9 +105,13 @@ const btnShoot = document.getElementById('btn-shoot');
 const btnGunGhost = document.getElementById('btn-gun-ghost');
 const btnGunFire = document.getElementById('btn-gun-fire');
 const btnConfuse = document.getElementById('btn-confuse');
+const btnSpear = document.getElementById('btn-spear');
+const btnDragon = document.getElementById('btn-dragon');
 const badgeGhost = document.getElementById('badge-ghost');
 const badgeFire = document.getElementById('badge-fire');
 const badgeConfuse = document.getElementById('badge-confuse');
+const badgeSpear = document.getElementById('badge-spear');
+const badgeDragon = document.getElementById('badge-dragon');
 
 const modalStart = document.getElementById('modal-start');
 const btnPlay = document.getElementById('btn-play');
@@ -202,6 +206,8 @@ const game = new SoccerBossGame(canvas, {
     fireShots,
     ghostShots,
     confuseCooldown,
+    dragonCooldown,
+    spearCooldown,
     shieldsLeft,
     goldenArmorLeft,
     giantScale,
@@ -238,6 +244,16 @@ const game = new SoccerBossGame(canvas, {
       const ready = confuseCooldown <= 0;
       badgeConfuse.textContent = ready ? 'מוכן' : `${Math.ceil(confuseCooldown)}ש׳`;
       btnConfuse.classList.toggle('empty', !ready);
+    }
+    if (badgeSpear && btnSpear) {
+      const ready = spearCooldown <= 0;
+      badgeSpear.textContent = ready ? 'מוכן' : `${Math.ceil(spearCooldown)}ש׳`;
+      btnSpear.classList.toggle('empty', !ready);
+    }
+    if (badgeDragon && btnDragon) {
+      const ready = dragonCooldown <= 0;
+      badgeDragon.textContent = ready ? 'מוכן' : `${Math.ceil(dragonCooldown)}ש׳`;
+      btnDragon.classList.toggle('empty', !ready);
     }
 
     const chips = [];
@@ -420,6 +436,22 @@ if (btnConfuse) {
     e.preventDefault();
     sound.unlock();
     game.triggerConfuse(false);
+  });
+}
+
+if (btnSpear) {
+  btnSpear.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    sound.unlock();
+    game.throwSpear();
+  });
+}
+
+if (btnDragon) {
+  btnDragon.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    sound.unlock();
+    game.summonDragons(false);
   });
 }
 
