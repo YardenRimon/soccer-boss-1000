@@ -199,10 +199,20 @@ export class SoccerBossGame {
     this.coins = this.config.initialCoins.map((c) => ({ ...c }));
     this.defenders = this.config.movingDefenders.map((d) => ({ ...d }));
 
-    // 2 Friendly Helpers for the Player (left & right wings)
+    // 2 Friendly Helpers on the sides: Ron (left) & Hermione (right), with Harry Potter in the center!
     this.helpers = [
-      { id: 1, label: '7', x: 0.16, y: 0.68, baseX: 0.16, baseY: 0.68, r: 0.028, shootTimer: 5.2, phase: 0 },
-      { id: 2, label: '9', x: 0.84, y: 0.68, baseX: 0.84, baseY: 0.68, r: 0.028, shootTimer: 7.4, phase: Math.PI },
+      { id: 'ron', label: 'רון', x: 0.16, y: 0.68, baseX: 0.16, baseY: 0.68, r: 0.03, shootTimer: 5.2, phase: 0 },
+      {
+        id: 'hermione',
+        label: 'הרמיוני',
+        x: 0.84,
+        y: 0.68,
+        baseX: 0.84,
+        baseY: 0.68,
+        r: 0.03,
+        shootTimer: 7.4,
+        phase: Math.PI,
+      },
     ];
 
     // Patrol Rockets behind the King so he cannot turn/retreat back
@@ -1486,9 +1496,9 @@ export class SoccerBossGame {
       this._drawDecoy(d.x * W, d.y * H, this.player.r * W * 0.95, d);
     }
 
-    // 11.5 Two Friendly Helpers for the Player
+    // 11.5 Two Friendly Helpers on the sides: Ron & Hermione
     for (const h of this.helpers) {
-      this._drawHelper(h.x * W, h.y * H, h.r * W, h.label);
+      this._drawHelper(h.x * W, h.y * H, h.r * W, h);
     }
 
     // 12. Boss (King)
@@ -1620,31 +1630,60 @@ export class SoccerBossGame {
     ctx.restore();
   }
 
-  _drawHelper(x, y, r, label) {
+  _drawHelper(x, y, r, helper) {
     const ctx = this.ctx;
+    const isRon = helper.id === 'ron';
     ctx.save();
-    ctx.fillStyle = 'rgba(0,0,0,0.28)';
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
     ctx.beginPath();
-    ctx.ellipse(x, y + r * 0.85, r * 0.85, r * 0.32, 0, 0, Math.PI * 2);
+    ctx.ellipse(x, y + r * 0.88, r * 0.85, r * 0.32, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = '#0ea5e9';
-    ctx.strokeStyle = '#bae6fd';
+    // Gryffindor Robe & Scarf base
+    ctx.fillStyle = '#7f1d1d';
+    ctx.strokeStyle = '#facc15';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.arc(x, y + r * 0.12, r * 0.96, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
-    ctx.fillStyle = '#ffffff';
-    ctx.font = `800 ${Math.round(r * 0.92)}px system-ui, sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(label, x, y + 1);
+    // Face
+    ctx.fillStyle = '#fde68a';
+    ctx.beginPath();
+    ctx.arc(x, y - r * 0.06, r * 0.72, 0, Math.PI * 2);
+    ctx.fill();
 
-    ctx.font = '700 10px system-ui, sans-serif';
-    ctx.fillStyle = '#bae6fd';
-    ctx.fillText('🤝', x, y - r - 7);
+    // Hair (Ron = bright ginger, Hermione = wavy brown)
+    ctx.fillStyle = isRon ? '#ea580c' : '#78350f';
+    ctx.beginPath();
+    ctx.arc(x, y - r * 0.34, r * 0.72, Math.PI, Math.PI * 2);
+    ctx.fill();
+    if (!isRon) {
+      // Hermione's side hair waves
+      ctx.beginPath();
+      ctx.arc(x - r * 0.62, y - r * 0.05, r * 0.32, 0, Math.PI * 2);
+      ctx.arc(x + r * 0.62, y - r * 0.05, r * 0.32, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Eyes
+    ctx.fillStyle = '#1e293b';
+    ctx.beginPath();
+    ctx.arc(x - r * 0.24, y - r * 0.05, r * 0.09, 0, Math.PI * 2);
+    ctx.arc(x + r * 0.24, y - r * 0.05, r * 0.09, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Name tag above head
+    ctx.font = '800 10px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+    ctx.lineWidth = 2.5;
+    ctx.strokeText(helper.label, x, y - r - 6);
+    ctx.fillStyle = isRon ? '#fed7aa' : '#fde68a';
+    ctx.fillText(helper.label, x, y - r - 6);
     ctx.restore();
   }
 
@@ -2187,7 +2226,7 @@ export class SoccerBossGame {
     ctx.ellipse(x, y + r * 0.85, r * 0.9 * shadowScale, r * 0.35, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Jersey / Golden Armor Body
+    // Harry Potter Robe / Golden Armor Outer Body
     if (hasGoldArmor) {
       const goldGrad = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, 2, x, y, r);
       goldGrad.addColorStop(0, '#fef08a');
@@ -2197,8 +2236,8 @@ export class SoccerBossGame {
       ctx.strokeStyle = '#fef9c3';
       ctx.lineWidth = 3;
     } else {
-      ctx.fillStyle = '#2563eb';
-      ctx.strokeStyle = '#ffffff';
+      ctx.fillStyle = '#7f1d1d'; // Gryffindor robe
+      ctx.strokeStyle = '#facc15';
       ctx.lineWidth = 2.5;
     }
 
@@ -2213,17 +2252,58 @@ export class SoccerBossGame {
       ctx.strokeStyle = '#854d0e';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.arc(x - r * 0.75, y + r * 0.1, r * 0.28, 0, Math.PI * 2);
-      ctx.arc(x + r * 0.75, y + r * 0.1, r * 0.28, 0, Math.PI * 2);
+      ctx.arc(x - r * 0.78, y + r * 0.1, r * 0.28, 0, Math.PI * 2);
+      ctx.arc(x + r * 0.78, y + r * 0.1, r * 0.28, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
     }
 
-    ctx.fillStyle = hasGoldArmor ? '#422006' : '#ffffff';
-    ctx.font = `800 ${Math.round(r * 0.92)}px system-ui, sans-serif`;
+    // Harry Potter Head & Messy Black Hair
+    ctx.fillStyle = '#fde68a';
+    ctx.beginPath();
+    ctx.arc(x, y - r * 0.08, r * 0.66, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#111827';
+    ctx.beginPath();
+    ctx.arc(x, y - r * 0.32, r * 0.68, Math.PI, Math.PI * 2);
+    ctx.fill();
+
+    // Lightning Bolt Scar on forehead!
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.moveTo(x + r * 0.15, y - r * 0.56);
+    ctx.lineTo(x + r * 0.04, y - r * 0.42);
+    ctx.lineTo(x + r * 0.18, y - r * 0.42);
+    ctx.lineTo(x + r * 0.06, y - r * 0.28);
+    ctx.stroke();
+
+    // Round Harry Potter Glasses!
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.arc(x - r * 0.24, y - r * 0.08, r * 0.19, 0, Math.PI * 2);
+    ctx.arc(x + r * 0.24, y - r * 0.08, r * 0.19, 0, Math.PI * 2);
+    ctx.moveTo(x - r * 0.05, y - r * 0.08);
+    ctx.lineTo(x + r * 0.05, y - r * 0.08);
+    ctx.stroke();
+
+    // Eyes inside glasses
+    ctx.fillStyle = '#166534';
+    ctx.beginPath();
+    ctx.arc(x - r * 0.24, y - r * 0.08, r * 0.07, 0, Math.PI * 2);
+    ctx.arc(x + r * 0.24, y - r * 0.08, r * 0.07, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Label
+    ctx.font = '800 10px system-ui, sans-serif';
     ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('10', x, y + 1);
+    ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+    ctx.lineWidth = 2.5;
+    ctx.strokeText('הארי', x, y + r + 11);
+    ctx.fillStyle = '#fef08a';
+    ctx.fillText('הארי', x, y + r + 11);
 
     if (this.player.hasBall) {
       const ballR = r * 0.56;
