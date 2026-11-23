@@ -32,6 +32,8 @@ export class SoccerBossGame {
       goldenArmor: 0,
       dragonMaster: 0,
       spearMaster: 0,
+      lightningAura: 0,
+      veggieLuck: 0,
     };
 
     this.state = 'paused'; // 'paused' | 'playing' | 'restarting' | 'won'
@@ -82,9 +84,11 @@ export class SoccerBossGame {
     this.floatingTexts = [];
     this.confetti = [];
 
-    // Weather (Rain & Lightning)
+    // Weather (Vegetable Rain, Steam & Bubbles — NO wind!)
     this.rainDrops = [];
     this.rainSplashes = [];
+    this.steamPuffs = [];
+    this.bubbles = [];
     this.lightningTimer = 2.0;
     this.lightningFlash = 0;
     this.lightningBolts = [];
@@ -147,6 +151,8 @@ export class SoccerBossGame {
       goldenArmor: Number(upgrades?.goldenArmor) || 0,
       dragonMaster: Number(upgrades?.dragonMaster) || 0,
       spearMaster: Number(upgrades?.spearMaster) || 0,
+      lightningAura: Number(upgrades?.lightningAura) || 0,
+      veggieLuck: Number(upgrades?.veggieLuck) || 0,
     };
   }
 
@@ -190,6 +196,7 @@ export class SoccerBossGame {
       ballSpin: 0,
       hasBall: true,
       kickTimer: 0,
+      spearSwingTimer: 0,
     };
 
     this.boss = {
@@ -311,18 +318,40 @@ export class SoccerBossGame {
   }
 
   _initWeather() {
-    const count = this.config.world.weather.rainCount;
+    const count = Math.min(34, Math.round(this.config.world.weather.rainCount * 0.38));
+    const veggies = ['🥕', '🥦', '🍅', '🥒', '🌽', '🫑'];
     this.rainDrops = [];
     for (let i = 0; i < count; i++) {
       this.rainDrops.push({
         x: Math.random(),
         y: Math.random(),
-        len: 0.025 + Math.random() * 0.03,
-        speed: 0.85 + Math.random() * 0.65,
-        alpha: 0.25 + Math.random() * 0.4,
+        emoji: veggies[i % veggies.length],
+        size: 13 + (i % 4) * 2,
+        speed: 0.24 + Math.random() * 0.22,
+        alpha: 0.72 + Math.random() * 0.25,
       });
     }
     this.rainSplashes = [];
+    this.steamPuffs = [];
+    for (let i = 0; i < 14; i++) {
+      this.steamPuffs.push({
+        x: Math.random(),
+        y: 0.15 + Math.random() * 0.75,
+        r: 14 + Math.random() * 18,
+        vy: -0.03 - Math.random() * 0.03,
+        alpha: 0.08 + Math.random() * 0.12,
+      });
+    }
+    this.bubbles = [];
+    for (let i = 0; i < 18; i++) {
+      this.bubbles.push({
+        x: Math.random(),
+        y: Math.random(),
+        r: 5 + Math.random() * 8,
+        vy: -0.07 - Math.random() * 0.07,
+        wobble: Math.random() * Math.PI * 2,
+      });
+    }
     this.lightningFlash = 0;
     this.lightningBolts = [];
     this.lightningTimer = 1.4 + Math.random() * 1.8;
@@ -583,7 +612,7 @@ export class SoccerBossGame {
     this._syncHud();
   }
 
-  // Throw Spear (Harry Potter, Ron, or Hermione throw fast spears at Queen & King!)
+  // Throw Spear (Harry Potter, Ron, or Hermione swing & throw fast spears toward the Queen & King!)
   throwSpear(thrower = 'הארי', fromX = this.player.x, fromY = this.player.y - this.player.r, free = false) {
     if (this.state !== 'playing') return;
     if (!free && this.spearCooldown > 0) {
@@ -592,12 +621,16 @@ export class SoccerBossGame {
     }
     if (!free) {
       const spearLvl = this.upgrades.spearMaster || 0;
-      this.spearCooldown = Math.max(1.6, 4.2 - spearLvl * 0.48);
+      const auraLvl = this.upgrades.lightningAura || 0;
+      this.spearCooldown = Math.max(1.2, 4.0 - spearLvl * 0.45 - auraLvl * 0.2);
       this.player.kickTimer = 0.2;
+      this.player.spearSwingTimer = 0.3;
     }
 
-    const dx = this.boss.x - fromX;
-    const dy = this.boss.y - fromY;
+    // Aim directly toward the Queen if she's on the field, otherwise straight at the King!
+    const targetObj = !this.queenEaten ? this.queen : this.boss;
+    const dx = targetObj.x - fromX;
+    const dy = targetObj.y - fromY;
     const dist = Math.hypot(dx, dy) || 0.001;
     const spd = 1.48;
     this.spears.push({
@@ -605,12 +638,12 @@ export class SoccerBossGame {
       y: fromY,
       vx: (dx / dist) * spd,
       vy: (dy / dist) * spd,
-      r: 0.02,
+      r: 0.022,
       thrower,
     });
     sound.kick(true);
-    this._spawnParticles(fromX, fromY, '#fde047', 8);
-    this._addFloatingText(fromX, fromY - 0.03, `🔱 ${thrower} הטיל חנית!`, '#fde047');
+    this._spawnParticles(fromX, fromY, '#fde047', 10);
+    this._addFloatingText(fromX, fromY - 0.03, `🔱 ${thrower} הניף חנית!`, '#fde047');
     this._syncHud();
   }
 
@@ -668,7 +701,8 @@ export class SoccerBossGame {
     const diffMult = this.config.difficulty.coinMult;
     const magnetMult = 1 + (this.upgrades.magnet || 0) * 0.2;
     const armorMult = 1 + (this.upgrades.goldenArmor || 0) * 0.1;
-    return Math.max(1, Math.round(baseAmount * diffMult * magnetMult * armorMult));
+    const auraMult = 1 + (this.upgrades.lightningAura || 0) * 0.15;
+    return Math.max(1, Math.round(baseAmount * diffMult * magnetMult * armorMult * auraMult));
   }
 
   _triggerWin(skipWorlds = 0) {
@@ -677,6 +711,16 @@ export class SoccerBossGame {
     this.shakeTime = 0.3;
     this.shakeMag = 6;
     this._spawnConfetti();
+    // Bubble shower celebration on win ("ויש שם אדים ויש שם בועות ואז עוברים")!
+    for (let i = 0; i < 24; i++) {
+      this.bubbles.push({
+        x: Math.random(),
+        y: 0.65 + Math.random() * 0.35,
+        r: 7 + Math.random() * 11,
+        vy: -0.25 - Math.random() * 0.22,
+        wobble: Math.random() * Math.PI * 2,
+      });
+    }
 
     const effectiveSkipWorlds = skipWorlds > 0 ? skipWorlds : this.queenBroken ? 2 : 0;
     const baseClear = (effectiveSkipWorlds > 0 ? 35 : 15) + Math.min(35, this.config.level * 2);
@@ -757,6 +801,7 @@ export class SoccerBossGame {
 
     if (this.invulnTimer > 0) this.invulnTimer = Math.max(0, this.invulnTimer - dt);
     if (this.player.kickTimer > 0) this.player.kickTimer = Math.max(0, this.player.kickTimer - dt);
+    if (this.player.spearSwingTimer > 0) this.player.spearSwingTimer = Math.max(0, this.player.spearSwingTimer - dt);
     if (this.gunRecoilFire > 0) this.gunRecoilFire = Math.max(0, this.gunRecoilFire - dt);
     if (this.gunRecoilGhost > 0) this.gunRecoilGhost = Math.max(0, this.gunRecoilGhost - dt);
 
@@ -985,6 +1030,16 @@ export class SoccerBossGame {
       s.y += s.vy * dt;
       this._spawnParticles(s.x, s.y, '#fef08a', 1);
 
+      // Spears thrown by Harry, Ron, or Hermione knock away Queen's spinning stars mid-air!
+      for (let hi = this.hazards.length - 1; hi >= 0; hi--) {
+        const hz = this.hazards[hi];
+        if (this._distAspect(s.x, s.y, hz.x, hz.y) < s.r + hz.r * 1.45) {
+          this._spawnParticles(hz.x, hz.y, '#fde047', 12);
+          this._addFloatingText(hz.x, hz.y, '🔱💥 כוכב הועף!', '#fde047');
+          this.hazards.splice(hi, 1);
+        }
+      }
+
       // Spear stuns Queen briefly if it passes her
       if (!this.queenEaten && this._distAspect(s.x, s.y, this.queen.x, this.queen.y) < s.r + this.queen.r) {
         this.queenConfuseTimer = Math.max(this.queenConfuseTimer, 1.8);
@@ -1185,21 +1240,42 @@ export class SoccerBossGame {
   _updateWeather(dt) {
     const weather = this.config.world.weather;
 
+    // Vegetable Rain (falling straight down, NO wind!)
     for (const drop of this.rainDrops) {
       drop.y += drop.speed * dt;
-      if (drop.y > 1.02) {
-        if (Math.random() < 0.35 && this.rainSplashes.length < 30) {
+      if (drop.y > 1.04) {
+        if (Math.random() < 0.35 && this.rainSplashes.length < 25) {
           this.rainSplashes.push({
             x: drop.x,
-            y: 0.1 + Math.random() * 0.85,
-            r: 1.5,
-            maxR: 5 + Math.random() * 4,
-            life: 0.22,
-            maxLife: 0.22,
+            y: 0.12 + Math.random() * 0.82,
+            r: 2,
+            maxR: 6 + Math.random() * 4,
+            life: 0.25,
+            maxLife: 0.25,
           });
         }
         drop.y = -0.05;
         drop.x = Math.random();
+      }
+    }
+
+    // Rising Steam puffs
+    for (const st of this.steamPuffs) {
+      st.y += st.vy * dt;
+      if (st.y < -0.08) {
+        st.y = 1.05;
+        st.x = Math.random();
+      }
+    }
+
+    // Floating Bubbles (and extra bubbles rising on win!)
+    for (const b of this.bubbles) {
+      b.wobble += dt * 4;
+      b.y += b.vy * dt;
+      b.x += Math.sin(b.wobble) * 0.025 * dt;
+      if (b.y < -0.06) {
+        b.y = 1.06;
+        b.x = Math.random();
       }
     }
 
@@ -1599,8 +1675,9 @@ export class SoccerBossGame {
   }
 
   _updatePowerups(dt) {
-    this.powerupTimer -= dt;
-    if (this.powerupTimer <= 0 && this.powerups.length < 2) {
+    const luckBonus = (this.upgrades.veggieLuck || 0) * 0.55;
+    this.powerupTimer -= dt * (1 + luckBonus * 0.35);
+    if (this.powerupTimer <= 0 && this.powerups.length < 2 + Math.floor(luckBonus)) {
       this.powerupTimer = this.config.powerupInterval;
       const type = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
       for (let attempt = 0; attempt < 10; attempt++) {
@@ -2076,7 +2153,14 @@ export class SoccerBossGame {
     const ctx = this.ctx;
     const isRon = helper.id === 'ron';
     const hasGoldArmor = this.goldenArmorLeft > 0;
+    const dancing = this.state === 'won';
+    const danceAngle = dancing ? Math.sin(performance.now() * 0.015 + (isRon ? 0 : 1.5)) * 0.24 : 0;
+    const danceBounce = dancing ? Math.abs(Math.sin(performance.now() * 0.015 + (isRon ? 0 : 1.5))) * 8 : 0;
     ctx.save();
+    ctx.translate(x, y - danceBounce);
+    ctx.rotate(danceAngle);
+    x = 0;
+    y = 0;
 
     // Shadow
     ctx.fillStyle = 'rgba(0,0,0,0.3)';
@@ -2518,19 +2602,49 @@ export class SoccerBossGame {
   _drawRainAndLightning(W, H) {
     const ctx = this.ctx;
 
+    // 1. Soft rising Steam (אדים)
     ctx.save();
-    ctx.strokeStyle = 'rgba(215, 238, 255, 0.62)';
-    ctx.lineWidth = 1.35;
-    ctx.lineCap = 'round';
+    for (const st of this.steamPuffs) {
+      ctx.globalAlpha = st.alpha;
+      const g = ctx.createRadialGradient(st.x * W, st.y * H, 1, st.x * W, st.y * H, st.r);
+      g.addColorStop(0, 'rgba(255, 255, 255, 0.7)');
+      g.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(st.x * W, st.y * H, st.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // 2. Vegetable Rain (גשם ירקות: 🥕🥦🍅🥒🌽)
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
     for (const d of this.rainDrops) {
       ctx.globalAlpha = d.alpha;
-      const x1 = d.x * W;
-      const y1 = d.y * H;
-      const y2 = y1 + d.len * H;
+      ctx.font = `${d.size}px sans-serif`;
+      ctx.fillText(d.emoji, d.x * W, d.y * H);
+    }
+    ctx.restore();
+
+    // 3. Floating Bubbles (בועות)
+    ctx.save();
+    for (const b of this.bubbles) {
+      const bx = b.x * W;
+      const by = b.y * H;
+      ctx.strokeStyle = 'rgba(186, 230, 253, 0.85)';
+      ctx.fillStyle = 'rgba(125, 211, 252, 0.18)';
+      ctx.lineWidth = 1.4;
       ctx.beginPath();
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x1, y2);
+      ctx.arc(bx, by, b.r, 0, Math.PI * 2);
+      ctx.fill();
       ctx.stroke();
+
+      // Bubble shine highlight
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+      ctx.beginPath();
+      ctx.arc(bx - b.r * 0.35, by - b.r * 0.35, b.r * 0.22, 0, Math.PI * 2);
+      ctx.fill();
     }
     ctx.restore();
 
@@ -2831,7 +2945,26 @@ export class SoccerBossGame {
   _drawPlayer(x, y, r, shadowScale = 1) {
     const ctx = this.ctx;
     const hasGoldArmor = this.goldenArmorLeft > 0;
+    const dancing = this.state === 'won';
+    const danceAngle = dancing ? Math.sin(performance.now() * 0.015) * 0.22 : 0;
+    const danceBounce = dancing ? Math.abs(Math.sin(performance.now() * 0.015)) * 10 : 0;
     ctx.save();
+    ctx.translate(x, y - danceBounce);
+    ctx.rotate(danceAngle);
+    x = 0;
+    y = 0;
+
+    // Swinging Spear Arc when Harry swings a spear!
+    if (this.player.spearSwingTimer > 0) {
+      ctx.save();
+      const prog = 1 - this.player.spearSwingTimer / 0.3;
+      ctx.strokeStyle = '#fde047';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(0, -r * 0.4, r * 1.6, -Math.PI + prog * 1.4, -0.3 + prog * 1.4);
+      ctx.stroke();
+      ctx.restore();
+    }
 
     if (this.turboTimer > 0) {
       ctx.fillStyle = 'rgba(250, 204, 21, 0.28)';

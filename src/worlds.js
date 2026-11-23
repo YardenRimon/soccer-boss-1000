@@ -117,6 +117,22 @@ export const SHOP_UPGRADES = [
     costs: [45, 95, 155, 230, 320],
     desc: 'מקצר את טעינת החניתות של הארי ומאיץ את רון והרמיוני!',
   },
+  {
+    id: 'lightningAura',
+    name: 'הילת ברק',
+    emoji: '⚡',
+    maxLevel: 5,
+    costs: [55, 115, 185, 275, 390],
+    desc: 'מאיצה את כל הכוחות והיכולות ומגדילה פרסי ניצחון ב-15% לכל רמה!',
+  },
+  {
+    id: 'veggieLuck',
+    name: 'גשם ירקות ובועות',
+    emoji: '🥕',
+    maxLevel: 5,
+    costs: [35, 75, 130, 195, 275],
+    desc: 'מוסיף עוד מטבעות זהב וכוחות מיוחדים בין הירקות והבועות במגרש!',
+  },
 ];
 
 export const WORLDS = [
@@ -351,16 +367,12 @@ export function generateLevelConfig(level, difficultyId = 'easy') {
     fireFences.push({ x1, x2, y: fy, thickness: 0.017 });
   }
 
-  // Guardian-of-Guards (שומרי שומרים) — friendly guards that NEVER hurt Harry!
-  const guardianGuards = [];
-  for (let i = 0; i < 2; i++) {
-    guardianGuards.push({
-      x: i === 0 ? 0.25 : 0.75,
-      y: 0.56 + i * 0.12,
-      vx: (i === 0 ? 1 : -1) * 0.16,
-      r: 0.028,
-    });
-  }
+  // Guardian-of-Guards (שומרי שומרים) — friendly guards that NEVER hurt Harry, all the way to the end!
+  const guardianGuards = [
+    { x: 0.25, y: 0.46, vx: 0.17, r: 0.028 }, // Front/top guard ("גם בסוף")
+    { x: 0.75, y: 0.58, vx: -0.16, r: 0.028 },
+    { x: 0.35, y: 0.72, vx: 0.15, r: 0.028 },
+  ];
 
   const minQueenShotLvl = diff.id === 'easy' ? 4 : diff.id === 'normal' ? 2 : 1;
 

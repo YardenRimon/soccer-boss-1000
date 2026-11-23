@@ -29,6 +29,8 @@ function loadProgress() {
       goldenArmor: 0,
       dragonMaster: 0,
       spearMaster: 0,
+      lightningAura: 0,
+      veggieLuck: 0,
     },
     unlockAll: false,
     muted: false,
