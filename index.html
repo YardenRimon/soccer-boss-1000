@@ -46,7 +46,7 @@
       <!-- Boss HP Bar -->
       <div class="boss-bar-wrap" aria-label="חיים של הבוס">
         <div class="boss-bar-header">
-          <span id="boss-title-text" class="boss-title">👹 הבוס</span>
+          <span id="boss-title-text" class="boss-title">👹 המלך (הבוס)</span>
           <span id="boss-hp-text" class="boss-hp-text">1 / 1 ❤️</span>
         </div>
         <div class="boss-hp-track" role="progressbar" aria-valuemin="0" aria-valuemax="1" aria-valuenow="1">
@@ -54,7 +54,7 @@
         </div>
       </div>
 
-      <!-- Active Power-up & Shield Status -->
+      <!-- Active Power-up, Armor, Helpers & Growth Status -->
       <div id="powerup-bar" class="powerup-bar" aria-live="polite"></div>
     </header>
 
@@ -66,8 +66,29 @@
       <div id="toast" class="toast" aria-live="assertive"></div>
 
       <!-- Mobile Controls Overlay -->
+      <div class="touch-hint" id="touch-hint">גרור לתנועה • רובים עוקפים מלכה 🔫👻🔥 • בלבל 🌀</div>
+
       <div class="controls-overlay" aria-hidden="false">
-        <div class="touch-hint" id="touch-hint">גרור עם האצבע לתנועה בזיגזג • אסוף מטבעות 🪙 ובעט בבוס!</div>
+        <div class="special-guns-bar">
+          <button id="btn-gun-ghost" class="special-btn gun-ghost" type="button" aria-label="רובה רפאים עוקף מלכה">
+            <span class="sp-emoji">👻</span>
+            <span class="sp-label">רפאים</span>
+            <span id="badge-ghost" class="sp-badge">2</span>
+          </button>
+
+          <button id="btn-gun-fire" class="special-btn gun-fire" type="button" aria-label="רובה אש עוקף מלכה">
+            <span class="sp-emoji">🔥</span>
+            <span class="sp-label">רובה אש</span>
+            <span id="badge-fire" class="sp-badge">1</span>
+          </button>
+
+          <button id="btn-confuse" class="special-btn gun-confuse" type="button" aria-label="בלבל מלך ומלכה">
+            <span class="sp-emoji">🌀</span>
+            <span class="sp-label">בלבל</span>
+            <span id="badge-confuse" class="sp-badge">מוכן</span>
+          </button>
+        </div>
+
         <button id="btn-shoot" class="shoot-btn" type="button" aria-label="בעט בכדור">
           <span class="shoot-icon">⚽</span>
           <span class="shoot-label">בעיטה!</span>
@@ -79,9 +100,9 @@
   <!-- Start / Intro Modal -->
   <dialog id="modal-start" class="game-dialog">
     <div class="dialog-card">
-      <div class="hero-emblem">⚽⛈️👑</div>
+      <div class="hero-emblem">⚽🚀👑</div>
       <h1>כדורגל בוס 100</h1>
-      <p class="subtitle">100 שלבים בעיצוב ייחודי, גשם וברקים, מטבעות וחנות שיפורים!</p>
+      <p class="subtitle">רובים עוקפי מלכה, בלבול למלך ולמלכה, 2 עוזרים, בורות וטילים!</p>
 
       <!-- Difficulty Selector -->
       <div class="diff-selector-block">
@@ -104,15 +125,16 @@
       </div>
 
       <ul class="rules-list">
-        <li><span>🚧</span> <strong>קונוסים בזיגזג:</strong> החלק בין הקונוסים בלי לגעת בהם (או קנה 🛡️ מגן קונוסים בחנות!).</li>
-        <li><span>🪙</span> <strong>מטבעות וחנות שיפורים:</strong> אסוף מטבעות על הדשא ונצח שלבים כדי לשדרג מהירות, בעיטה, מגנים וכדורי אש!</li>
+        <li><span>🔫</span> <strong>רובים וכדורים עוקפי מלכה:</strong> כפתורי 👻 רפאים ו-🔥 רובה אש יורים כדורים שעוברים ישר דרך המלכה!</li>
+        <li><span>🌀</span> <strong>כפילי בלבול + בורות + טילים:</strong> 🌀 מבלבל את המלך והמלכה! בורות עוצרים את המלך, וטילים מאחוריו מעיפים אותך לעולם הבא 🚀</li>
+        <li><span>✨</span> <strong>גדלים בפגיעה + שריון זהב + 2 עוזרים:</strong> 2 עוזרים נלחמים לצדך, וכל פגיעה במלך מגדילה אותך!</li>
       </ul>
 
-      <div id="saved-status-banner" class="saved-banner">💾 ההתקדמות והמטבעות נשמרים אוטומטית בדפדפן</div>
+      <div id="saved-status-banner" class="saved-banner">💾 ההתקדמות, המטבעות והשריון נשמרים אוטומטית בדפדפן</div>
 
       <div class="dialog-actions-stack">
         <button id="btn-play" class="primary-btn" type="button">יאללה לשחק! ⚽</button>
-        <button id="btn-open-shop-start" class="shop-open-btn" type="button">🛒 חנות שיפורים (<span id="start-coins-count">0</span> 🪙)</button>
+        <button id="btn-open-shop-start" class="shop-open-btn" type="button">🛒 חנות שיפורים ושריון זהב (<span id="start-coins-count">0</span> 🪙)</button>
       </div>
     </div>
   </dialog>
@@ -122,7 +144,7 @@
     <div class="dialog-card win-card">
       <div id="win-icon" class="hero-emblem">🏆</div>
       <h2 id="win-title">ניצחת את השלב!</h2>
-      <p id="win-desc" class="subtitle">פגיעה בול בבוס! כל הכבוד!</p>
+      <p id="win-desc" class="subtitle">פגיעה בול במלך! כל הכבוד!</p>
       <div class="win-stats win-stats-3">
         <div class="stat-box">
           <span class="stat-label">שלב</span>
@@ -139,7 +161,7 @@
       </div>
       <div class="dialog-actions-stack">
         <button id="btn-next-level" class="primary-btn" type="button">לשלב הבא ⬅️</button>
-        <button id="btn-open-shop-win" class="shop-open-btn" type="button">🛒 חנות שיפורים (סה״כ: <span id="win-total-coins">0</span> 🪙)</button>
+        <button id="btn-open-shop-win" class="shop-open-btn" type="button">🛒 חנות שיפורים ושריון זהב (<span id="win-total-coins">0</span> 🪙)</button>
       </div>
     </div>
   </dialog>
@@ -148,11 +170,11 @@
   <dialog id="modal-shop" class="game-dialog">
     <div class="dialog-card shop-card">
       <div class="dialog-header">
-        <h2>🛒 חנות שיפורים</h2>
+        <h2>🛒 חנות שיפורים ושריון</h2>
         <div class="shop-balance-badge">🪙 <strong id="shop-coins-balance">0</strong></div>
         <button id="btn-close-shop" class="icon-btn" type="button" aria-label="סגור">✕</button>
       </div>
-      <p class="shop-hint">אסוף מטבעות על הדשא ונצח שלבים כדי לשדרג את השחקן שלך!</p>
+      <p class="shop-hint">אסוף מטבעות על הדשא ונצח שלבים כדי לקנות שריון זהב, רובים ושדרוגים!</p>
       <div id="shop-items-list" class="shop-items-list"></div>
     </div>
   </dialog>

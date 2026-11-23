@@ -70,11 +70,35 @@ export const SHOP_UPGRADES = [
   },
   {
     id: 'startFire',
-    name: 'מתנע כדור אש',
+    name: 'רובה כדורי אש',
     emoji: '🔥',
     maxLevel: 5,
-    costs: [50, 100, 165, 240, 340],
-    desc: 'מתחיל כל שלב עם כדורי אש מוכנים שעוברים ישר דרך המלכה!',
+    costs: [45, 90, 150, 220, 310],
+    desc: 'פותח כל שלב עם יותר תחמושת לרובה האש (כדורים שעוברים דרך המלכה + 2x נזק!)',
+  },
+  {
+    id: 'ghostGun',
+    name: 'רובה רפאים',
+    emoji: '👻',
+    maxLevel: 5,
+    costs: [40, 80, 135, 200, 280],
+    desc: 'מגדיל תחמושת ומזרז טעינה של רובה הרפאים שעובר דרך המלכה והקונוסים!',
+  },
+  {
+    id: 'confuse',
+    name: 'משגר בלבול',
+    emoji: '🌀',
+    maxLevel: 5,
+    costs: [35, 75, 125, 185, 260],
+    desc: 'מאריך את בלבול המלכה והמלך, מוסיף כפילי הטעיה ומקצר טעינה!',
+  },
+  {
+    id: 'goldenArmor',
+    name: 'שריון זהב',
+    emoji: '✨',
+    maxLevel: 5,
+    costs: [60, 120, 195, 290, 420],
+    desc: 'שריון זהב מלכותי! סופג פגיעות מקונוסים, שומרים ומכשולים + בונוס מטבעות (+10% לרמה)!',
   },
 ];
 
@@ -307,6 +331,19 @@ export function generateLevelConfig(level, difficultyId = 'easy') {
     }
   }
 
+  // Pits for the King (Boss) in the top Boss zone!
+  const kingPits = [];
+  const pitCount = lvl < 20 ? 2 : 3;
+  for (let i = 0; i < pitCount; i++) {
+    const px = pitCount === 2 ? (i === 0 ? 0.28 : 0.72) : 0.22 + i * 0.28;
+    kingPits.push({
+      x: Math.max(0.16, Math.min(0.84, px + (rand() - 0.5) * 0.06)),
+      y: 0.115,
+      r: 0.038,
+      cooldown: 0,
+    });
+  }
+
   const minQueenShotLvl = diff.id === 'easy' ? 8 : diff.id === 'normal' ? 4 : 2;
 
   return {
@@ -323,6 +360,7 @@ export function generateLevelConfig(level, difficultyId = 'easy') {
     coneHitboxMult: diff.coneHitboxMult,
     queenCones,
     playerCones,
+    kingPits,
     initialCoins,
     movingDefenders,
     powerupInterval: Math.max(4.2, 6.8 - p * 1.8),

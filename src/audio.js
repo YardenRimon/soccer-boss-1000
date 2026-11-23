@@ -55,6 +55,31 @@ class SoundEngine {
     }
   }
 
+  fireBlaster() {
+    this._tone(340, 110, 0.18, 'sawtooth', 0.16);
+    this._tone(580, 920, 0.12, 'triangle', 0.14, 0.02);
+  }
+
+  ghostShot() {
+    this._tone(680, 320, 0.18, 'sine', 0.15);
+    this._tone(920, 1280, 0.14, 'triangle', 0.1, 0.03);
+  }
+
+  confuse() {
+    this._tone(420, 660, 0.09, 'sine', 0.14, 0);
+    this._tone(660, 360, 0.1, 'sine', 0.14, 0.08);
+    this._tone(360, 740, 0.12, 'triangle', 0.13, 0.17);
+  }
+
+  rocket() {
+    this._tone(180, 520, 0.2, 'sawtooth', 0.14, 0);
+    this._tone(90, 45, 0.25, 'triangle', 0.16, 0.1);
+  }
+
+  pit() {
+    this._tone(280, 95, 0.2, 'sine', 0.15, 0);
+  }
+
   bossHit(isFire = false) {
     this._tone(isFire ? 420 : 320, 110, 0.18, 'square', 0.14);
     this._tone(660, 880, 0.12, 'sine', 0.12, 0.04);
