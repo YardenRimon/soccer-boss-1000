@@ -355,16 +355,16 @@ export function generateLevelConfig(level, difficultyId = 'easy') {
     });
   }
 
-  // Fire Fences (גדרות אש) — exactly 2 impassable Fire Fences in the path!
+  // Fire Fences (גדרות אש) — 2 + 5 = 7 impassable Fire Fences staggered along the path!
   const fireFences = [];
-  const fenceCount = 2;
+  const fenceCount = 7;
   for (let i = 0; i < fenceCount; i++) {
-    const fy = 0.51 + i * 0.16;
+    const fy = 0.45 + (i / (fenceCount - 1)) * 0.30;
     const onLeft = (i + lvl) % 2 === 0;
-    const width = 0.22 + Math.min(0.12, p * 0.12);
+    const width = 0.19 + Math.min(0.09, p * 0.09);
     const x1 = onLeft ? 0.08 : 0.92 - width;
     const x2 = x1 + width;
-    fireFences.push({ x1, x2, y: fy, thickness: 0.017 });
+    fireFences.push({ x1, x2, y: fy, thickness: 0.015 });
   }
 
   // Guardian-of-Guards (שומרי שומרים) — friendly guards that NEVER hurt Harry, all the way to the end!
