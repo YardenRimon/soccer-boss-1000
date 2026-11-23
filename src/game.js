@@ -102,6 +102,9 @@ export class SoccerBossGame {
     this.queenFreezeTimer = 0;
     this.queenConfuseTimer = 0;
     this.bossConfuseTimer = 0;
+    this.queenVenomTimer = 0;
+    this.bossVenomTimer = 0;
+    this.bossVenomTick = 0;
     this.bossPitTimer = 0;
     this.queenRainSlowTimer = 0;
     this.bossRainSlowTimer = 0;
@@ -290,6 +293,9 @@ export class SoccerBossGame {
     this.queenFreezeTimer = 0;
     this.queenConfuseTimer = 0;
     this.bossConfuseTimer = 0;
+    this.queenVenomTimer = 0;
+    this.bossVenomTimer = 0;
+    this.bossVenomTick = 0;
     this.bossPitTimer = 0;
     this.queenRainSlowTimer = 0;
     this.bossRainSlowTimer = 0;
@@ -622,7 +628,7 @@ export class SoccerBossGame {
     if (!free) {
       const spearLvl = this.upgrades.spearMaster || 0;
       const auraLvl = this.upgrades.lightningAura || 0;
-      this.spearCooldown = Math.max(1.2, 4.0 - spearLvl * 0.45 - auraLvl * 0.2);
+      this.spearCooldown = Math.max(0.9, 1.8 - spearLvl * 0.16 - auraLvl * 0.1);
       this.player.kickTimer = 0.2;
       this.player.spearSwingTimer = 0.3;
     }
@@ -632,7 +638,8 @@ export class SoccerBossGame {
     const dx = targetObj.x - fromX;
     const dy = targetObj.y - fromY;
     const dist = Math.hypot(dx, dy) || 0.001;
-    const spd = 1.48;
+    // Slower spear speed so you can see it clearly while throwing frequently!
+    const spd = 0.72;
     this.spears.push({
       x: fromX,
       y: fromY,
@@ -821,8 +828,26 @@ export class SoccerBossGame {
     if (this.queenRainSlowTimer > 0) {
       this.queenRainSlowTimer = Math.max(0, this.queenRainSlowTimer - dt);
     }
-    if (this.bossRainSlowTimer > 0) {
-      this.bossRainSlowTimer = Math.max(0, this.bossRainSlowTimer - dt);
+    if (this.queenVenomTimer > 0) {
+      this.queenVenomTimer = Math.max(0, this.queenVenomTimer - dt);
+      if (Math.random() < 0.35) this._spawnParticles(this.queen.x, this.queen.y, '#22c55e', 1);
+    }
+    if (this.bossVenomTimer > 0) {
+      this.bossVenomTimer = Math.max(0, this.bossVenomTimer - dt);
+      if (Math.random() < 0.35) this._spawnParticles(this.boss.x, this.boss.y, '#22c55e', 1);
+      this.bossVenomTick -= dt;
+      if (this.bossVenomTick <= 0 && this.boss.hp > 0) {
+        this.bossVenomTick = 1.6;
+        this.boss.hp = Math.max(0, this.boss.hp - 1);
+        this.boss.hitFlash = 0.2;
+        this._spawnParticles(this.boss.x, this.boss.y, '#22c55e', 18);
+        this._addFloatingText(this.boss.x, this.boss.y + 0.05, '🧪 ארס! -1 ❤️', '#4ade80');
+        this._syncHud();
+        if (this.boss.hp <= 0) {
+          this._triggerWin(0);
+          return;
+        }
+      }
     }
     if (this.queenEaten && this.queenRespawnTimer > 0) {
       this.queenRespawnTimer = Math.max(0, this.queenRespawnTimer - dt);
@@ -983,11 +1008,11 @@ export class SoccerBossGame {
         this._addFloatingText(h.x, h.y - 0.04, `${h.label} בעט! ⚽`, '#93c5fd');
       }
 
-      // Ron & Hermione also throw spears at Queen & King!
+      // Ron & Hermione also throw spears frequently!
       h.spearTimer -= dt;
       if (h.spearTimer <= 0) {
         const spearLvl = this.upgrades.spearMaster || 0;
-        h.spearTimer = Math.max(3.6, 7.2 - spearLvl * 0.65);
+        h.spearTimer = Math.max(2.2, 3.8 - spearLvl * 0.35);
         h.kickTimer = 0.22;
         this.throwSpear(h.label, h.x, h.y - h.r, true);
       }
@@ -1040,26 +1065,29 @@ export class SoccerBossGame {
         }
       }
 
-      // Spear stuns Queen briefly if it passes her
+      // Spear applies Venom (ארס) & stuns Queen if it passes her
       if (!this.queenEaten && this._distAspect(s.x, s.y, this.queen.x, this.queen.y) < s.r + this.queen.r) {
-        this.queenConfuseTimer = Math.max(this.queenConfuseTimer, 1.8);
-        this._spawnParticles(this.queen.x, this.queen.y, '#fde047', 12);
-        this._addFloatingText(this.queen.x, this.queen.y - 0.04, '🔱 פגיעת חנית!', '#fde047');
+        this.queenConfuseTimer = Math.max(this.queenConfuseTimer, 2.0);
+        this.queenVenomTimer = 4.5;
+        this._spawnParticles(this.queen.x, this.queen.y, '#22c55e', 14);
+        this._addFloatingText(this.queen.x, this.queen.y - 0.04, '🔱🧪 חנית ארס!', '#4ade80');
       }
 
-      // Spear hits the King -> counts as a Boss hit & grows Harry!
+      // Spear hits the King -> applies Venom (ארס) + counts as a Boss hit & grows Harry!
       if (this._distAspect(s.x, s.y, this.boss.x, this.boss.y) < s.r + this.boss.r * 1.1) {
         this.boss.hp = Math.max(0, this.boss.hp - 1);
         this.boss.hitFlash = 0.22;
+        this.bossVenomTimer = 4.5;
+        this.bossVenomTick = 1.5;
         sound.bossHit(true);
-        this._spawnParticles(this.boss.x, this.boss.y, '#fde047', 20);
+        this._spawnParticles(this.boss.x, this.boss.y, '#22c55e', 22);
         this.giantScale = Math.min(1.65, Number((this.giantScale + 0.16).toFixed(2)));
         this.callbacks.onGiantScaleChange?.(this.giantScale);
         this.spears.splice(i, 1);
         this._syncHud();
 
         if (this.boss.hp <= 0) {
-          this._triggerWin(false);
+          this._triggerWin(0);
           return;
         }
         continue;
@@ -1957,10 +1985,11 @@ export class SoccerBossGame {
       this._drawCone(cone.x * W, cone.y * H, cone.r * W, world.coneColor, tod.shadowScale);
     }
 
-    // 9.5 Fire Fences (obstacles for Harry!)
+    // 9.5 Fire Fences (obstacles for Harry!) + White See-Through Protective Wind Fence!
     for (const fence of this.fireFences) {
       this._drawFireFence(fence.x1 * W, fence.x2 * W, fence.y * H, fence.thickness * W);
     }
+    this._drawWhiteWindFence(W, H);
 
     // 10. Moving Defenders & Friendly Guardian Guards (never hurt Harry!)
     for (const d of this.defenders) {
@@ -1989,10 +2018,14 @@ export class SoccerBossGame {
     }
 
     // 11.5 Two Immortal Helpers guarding Harry on the sides: Ron & Hermione
+    // Both Ron & Hermione also grow with Harry's giantScale, while Harry stays the biggest!
     for (const h of this.helpers) {
-      // Draw subtle protective guard link from Ron/Hermione to Harry
+      const growthFactor = h.id === 'ron' ? 0.72 : 0.55;
+      const helperScale = 1 + (this.giantScale - 1) * growthFactor;
+
+      // Protective white wind link between Harry and Ron/Hermione
       ctx.save();
-      ctx.strokeStyle = 'rgba(147, 197, 253, 0.32)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.42)';
       ctx.lineWidth = 2;
       ctx.setLineDash([4, 4]);
       ctx.beginPath();
@@ -2001,7 +2034,7 @@ export class SoccerBossGame {
       ctx.stroke();
       ctx.restore();
 
-      this._drawHelper(h.x * W, h.y * H, h.r * W, h);
+      this._drawHelper(h.x * W, h.y * H, h.r * W * helperScale, h);
     }
 
     // 12. Boss (King)
@@ -2278,6 +2311,50 @@ export class SoccerBossGame {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('⚔️', x, y + 1);
+    ctx.restore();
+  }
+
+  _drawWhiteWindFence(W, H) {
+    // Multiple crisp white, semi-transparent protective wind barriers shielding Harry, Ron & Hermione!
+    const ctx = this.ctx;
+    ctx.save();
+
+    // 2 horizontal white see-through wind fence barriers in front & back of Harry's trio
+    for (const fy of [H * 0.43, H * 0.875]) {
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.72)';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([12, 8]);
+      ctx.beginPath();
+      ctx.moveTo(W * 0.05, fy);
+      ctx.lineTo(W * 0.95, fy);
+      ctx.stroke();
+
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.16)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
+      ctx.lineWidth = 1.4;
+      for (let i = 0; i < 6; i++) {
+        const px = W * (0.08 + i * 0.165);
+        ctx.fillRect(px - 3, fy - 8, 6, 16);
+        ctx.strokeRect(px - 3, fy - 8, 6, 16);
+      }
+    }
+
+    // Protective white wind gusts swirling around Harry, Ron, and Hermione!
+    const trio = [
+      { x: this.player.x * W, y: this.player.y * H, r: this.player.r * W * this.giantScale * 1.45 },
+      ...this.helpers.map((h) => ({ x: h.x * W, y: h.y * H, r: h.r * W * 1.5 })),
+    ];
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.52)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8, 6]);
+    for (const t of trio) {
+      const ang = this.levelTime * 3.5;
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, t.r, ang, ang + Math.PI * 1.5);
+      ctx.stroke();
+    }
+
     ctx.restore();
   }
 
